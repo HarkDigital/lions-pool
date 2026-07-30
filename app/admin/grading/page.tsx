@@ -540,15 +540,6 @@ function GradingConsole() {
               </Card>
             )
           )}
-
-          <div className="rounded-xl border border-honolulu/40 bg-honolulu/5 p-4 text-sm text-fog">
-            <span className="font-bold text-sky">Production note:</span> in the live version a
-            nightly job pulls final scores from the league API and this page becomes a one-click
-            confirm.{" "}
-            {isDemoArea()
-              ? "In the demo, the nightly job is you."
-              : "Until that job lands with the backend, the nightly job is you."}
-          </div>
         </>
       )}
     </div>

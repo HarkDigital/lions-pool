@@ -238,7 +238,7 @@ function MoneylineEditor({ q, onChange }: { q: MoneylineQ; onChange: (q: Moneyli
           <Field label={`Team ${i + 1}`}>
             <TeamSelect value={o.team} onChange={(team) => setOpt(i, { team })} />
           </Field>
-          <Field label="Pays" className="mt-2">
+          <Field label="Points awarded if correct" className="mt-2">
             <NumInput value={o.points} onChange={(points) => setOpt(i, { points })} />
           </Field>
         </div>
@@ -351,7 +351,7 @@ function PropEditor({ q, onChange }: { q: PropQ; onChange: (q: PropQ) => void })
           </div>
         ))}
       </div>
-      <Field label="Pays (either side)" className="max-w-40">
+      <Field label="Points awarded if correct" className="max-w-40">
         <NumInput value={q.points} onChange={(points) => onChange({ ...q, points })} />
       </Field>
     </div>

@@ -347,36 +347,21 @@ export function saveNickname(userId: string, nickname: string) {
 // --- Mother Superior's weekly picks ------------------------------------------
 
 /**
- * The house line: Mother Superior's published pick for a week. Shown to the
- * pool via the contest's "Mother Superior Says" strip; not a graded
- * submission and never part of the Nums.
+ * The house line: Mother Superior fills out the same pick form the players
+ * use, and the result is stored here (its own keyspace, never a graded
+ * submission, never in the Nums). Its winner+score becomes the contest's
+ * "Mother Superior Says" strip that the pool reads on This Week.
  */
-export interface MothersPick {
-  week: number;
-  winner?: string; // team abbr or TIE
-  lions?: number;
-  opp?: number;
-  /** Extra calls, e.g. "GOFF OVER / WILLIAMS UNDER". */
-  extra?: string;
+export function mothersSubmission(week: number): Submission | undefined {
+  const local = readJSON<Submission[]>(k("motherpicks"), []);
+  return local.find((s) => s.week === week);
 }
 
-export function mothersPickFor(week: number): MothersPick | undefined {
-  const local = readJSON<MothersPick[]>(k("motherpicks"), []);
-  return local.find((r) => r.week === week);
-}
-
-export function saveMothersPick(pick: MothersPick, says: string, blurb?: string) {
-  const local = readJSON<MothersPick[]>(k("motherpicks"), []);
-  const rest = local.filter((r) => r.week !== pick.week);
-  writeJSON(k("motherpicks"), [...rest, pick]);
-  const contest = effectiveContest(pick.week);
-  if (contest) {
-    saveContest({
-      ...contest,
-      motherSays: says || undefined,
-      ...(blurb !== undefined ? { blurb: blurb.trim() || undefined } : {}),
-    });
-  }
+export function publishMothersLine(contest: Contest, sub: Submission, says: string) {
+  const local = readJSON<Submission[]>(k("motherpicks"), []);
+  const rest = local.filter((s) => s.week !== sub.week);
+  writeJSON(k("motherpicks"), [...rest, sub]);
+  saveContest({ ...contest, motherSays: says || undefined });
 }
 
 // --- Season scoring settings (Commissioner-set) ------------------------------

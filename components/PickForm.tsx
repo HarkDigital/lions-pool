@@ -229,18 +229,24 @@ function SubmittedCard({
   sub,
   canEdit,
   onEdit,
+  houseLine = false,
 }: {
   contest: Contest;
   sub: Submission;
   canEdit: boolean;
   onEdit: () => void;
+  houseLine?: boolean;
 }) {
   return (
     <Card accent className="overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-edge px-5 py-4 sm:px-6">
         <div className="flex flex-wrap items-center gap-3">
-          <Pill tone="win">PICK IS IN</Pill>
-          <span className="text-sm text-fog">Locked at kickoff: {fmtDateTime(contest.lockAtUTC)}</span>
+          <Pill tone="win">{houseLine ? "HOUSE LINE PUBLISHED" : "PICK IS IN"}</Pill>
+          <span className="text-sm text-fog">
+            {houseLine
+              ? "The pool reads this as Mother Superior Says"
+              : `Locked at kickoff: ${fmtDateTime(contest.lockAtUTC)}`}
+          </span>
         </div>
         {canEdit && (
           <Btn kind="ghost" onClick={onEdit}>
@@ -256,7 +262,7 @@ function SubmittedCard({
                 Tie, {fmtScore(sub.scorePick.lions, sub.scorePick.opp)}
               </div>
               <div className="text-xs font-semibold uppercase tracking-[0.2em] text-fog">
-                Team · Win · Score
+                Winner and score
               </div>
             </div>
           ) : (
@@ -270,7 +276,7 @@ function SubmittedCard({
                     : fmtScore(sub.scorePick.opp, sub.scorePick.lions)}
                 </div>
                 <div className="text-xs font-semibold uppercase tracking-[0.2em] text-fog">
-                  Team · Win · Score
+                  Winner and score
                 </div>
               </div>
             </div>
@@ -283,8 +289,11 @@ function SubmittedCard({
           ))}
         </ul>
         <p className="text-xs text-fog">
-          Submitted {fmtDateTime(sub.submittedAtUTC)}.
-          {canEdit && " You can edit until kickoff. After that, you live with it."}
+          {houseLine ? "Published" : "Submitted"} {fmtDateTime(sub.submittedAtUTC)}.
+          {canEdit &&
+            (houseLine
+              ? " Revise it whenever."
+              : " You can edit until kickoff. After that, you live with it.")}
         </p>
       </div>
     </Card>
@@ -293,7 +302,17 @@ function SubmittedCard({
 
 // --- The form ----------------------------------------------------------------
 
-export function PickForm({ contest }: { contest: Contest }) {
+export function PickForm({
+  contest,
+  houseLine = false,
+  houseSubmission,
+  onHouseSave,
+}: {
+  contest: Contest;
+  houseLine?: boolean;
+  houseSubmission?: Submission;
+  onHouseSave?: (sub: Submission) => void;
+}) {
   useStoreVersion();
   const user = useUser();
   const [editing, setEditing] = useState(false);
@@ -319,7 +338,7 @@ export function PickForm({ contest }: { contest: Contest }) {
     );
   }
 
-  if (user.isAdmin) {
+  if (user.isAdmin && !houseLine) {
     return (
       <Card accent className="p-6 text-center sm:p-8">
         <div className="display text-2xl">Mother Superior picks from her office.</div>
@@ -337,8 +356,8 @@ export function PickForm({ contest }: { contest: Contest }) {
     );
   }
 
-  const existing = mySubmission(contest.week, user.id);
-  const isOpen = isContestOpen(contest);
+  const existing = houseLine ? houseSubmission : mySubmission(contest.week, user.id);
+  const isOpen = houseLine ? true : isContestOpen(contest);
 
   if (existing && !editing) {
     return (
@@ -346,6 +365,7 @@ export function PickForm({ contest }: { contest: Contest }) {
         contest={contest}
         sub={existing}
         canEdit={isOpen}
+        houseLine={houseLine}
         onEdit={() => {
           setDraft(draftFrom(existing));
           setShowErrors(false);
@@ -489,8 +509,9 @@ export function PickForm({ contest }: { contest: Contest }) {
   };
 
   const save = () => {
-    // Re-check the clock: a form left open past the lock refuses to submit.
-    if (!isContestOpen(contest)) {
+    // Re-check the clock: a player form left open past the lock refuses to
+    // submit. The house line has no lock.
+    if (!houseLine && !isContestOpen(contest)) {
       setEditing(false);
       return;
     }
@@ -515,7 +536,7 @@ export function PickForm({ contest }: { contest: Contest }) {
       }
       answers[q.id] = draft.answers[q.id];
     }
-    saveSubmission({
+    const sub: Submission = {
       userId: user.id,
       week: contest.week,
       submittedAtUTC: new Date().toISOString(),
@@ -523,7 +544,9 @@ export function PickForm({ contest }: { contest: Contest }) {
       scorePick: needsScore
         ? { winner: scoreWinner(lionsN!, oppN!), lions: lionsN!, opp: oppN! }
         : undefined,
-    });
+    };
+    if (houseLine && onHouseSave) onHouseSave(sub);
+    else saveSubmission(sub);
     setShowErrors(false);
     setEditing(false);
   };
@@ -775,15 +798,23 @@ export function PickForm({ contest }: { contest: Contest }) {
           <div className="text-xs font-semibold uppercase tracking-[0.2em] text-sky">
             Week {contest.week}
           </div>
-          <h3 className="display text-2xl">{existing ? "Edit your pick" : "Make your pick"}</h3>
+          <h3 className="display text-2xl">
+            {houseLine
+              ? existing
+                ? "Edit the house line"
+                : "Set the house line"
+              : existing
+                ? "Edit your pick"
+                : "Make your pick"}
+          </h3>
         </div>
-        <Pill tone="blue">Picks lock at kickoff</Pill>
+        <Pill tone="blue">{houseLine ? "The house line" : "Picks lock at kickoff"}</Pill>
       </div>
 
       <div className="space-y-6 p-5 sm:p-6">
         {needsScore && (
           <section>
-            <QHeader>{lionsML?.title ?? "Team · Win · Score"}</QHeader>
+            <QHeader>{lionsML?.title ?? "Winner and score"}</QHeader>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               {winnerChoices.map((o) => (
                 <OptionBtn
@@ -845,14 +876,24 @@ export function PickForm({ contest }: { contest: Contest }) {
         )}
 
         <div className="flex flex-wrap items-center gap-3 border-t border-edge pt-4">
-          <Btn onClick={save}>{existing ? "Update pick" : "Send it to Mother Superior"}</Btn>
+          <Btn onClick={save}>
+            {houseLine
+              ? existing
+                ? "Update the house line"
+                : "Publish the house line"
+              : existing
+                ? "Update pick"
+                : "Send it to Mother Superior"}
+          </Btn>
           {existing && (
             <Btn kind="ghost" onClick={() => setEditing(false)}>
               Cancel
             </Btn>
           )}
           <span className="text-xs text-fog">
-            Locks {fmtDateTime(contest.lockAtUTC)}. Late by a minute, you lost your pick.
+            {houseLine
+              ? "The house line, not a graded entry. The pool reads it as Mother Superior Says."
+              : `Locks ${fmtDateTime(contest.lockAtUTC)}. Late by a minute, you lost your pick.`}
           </span>
         </div>
       </div>
