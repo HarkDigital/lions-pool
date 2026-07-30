@@ -9,16 +9,20 @@ export default function SignInPage() {
     <div className="flex min-h-[calc(100dvh-7rem)] flex-col items-center justify-center gap-8">
       <LogoMark height={44} />
       <SignIn />
-      <div className="flex flex-col items-center gap-3">
-        <p className="text-sm text-silver">
-          {"New to the pool? "}
-          <Link
-            href="/sign-up/"
-            className="font-bold text-sky underline-offset-2 transition hover:underline"
-          >
-            Create your account
-          </Link>
-        </p>
+      <div className="flex w-full max-w-sm flex-col items-center gap-4">
+        <div className="flex w-full items-center gap-3">
+          <span className="h-px flex-1 bg-edge-2" />
+          <span className="text-xs font-semibold uppercase tracking-[0.2em] text-fog">
+            New to the pool?
+          </span>
+          <span className="h-px flex-1 bg-edge-2" />
+        </div>
+        <Link
+          href="/sign-up/"
+          className="inline-flex w-full items-center justify-center rounded-lg border-2 border-honolulu bg-honolulu/10 px-8 py-3 text-base font-bold text-sky transition hover:bg-honolulu/25 hover:text-chalk"
+        >
+          Create your account
+        </Link>
         <p className="text-xs font-semibold uppercase tracking-[0.25em] text-fog">
           Members only. Mother Superior knows who you are.
         </p>
