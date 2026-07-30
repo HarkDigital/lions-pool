@@ -683,14 +683,6 @@ function WeekEditor({
             onChange={(e) => set({ blurb: e.target.value || undefined })}
           />
         </Field>
-        <Field label="Mother Superior's pick">
-          <input
-            className={INPUT}
-            value={draft.motherSays ?? ""}
-            placeholder="LIONS WIN 31-13"
-            onChange={(e) => set({ motherSays: e.target.value || undefined })}
-          />
-        </Field>
         <Field label="Status">
           <select
             className={INPUT}
