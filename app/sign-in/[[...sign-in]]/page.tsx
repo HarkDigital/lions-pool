@@ -23,8 +23,10 @@ export default function SignInPage() {
         >
           Create your account
         </Link>
-        <p className="text-xs font-semibold uppercase tracking-[0.25em] text-fog">
-          Members only. Mother Superior knows who you are.
+        <p className="text-center text-xs font-semibold uppercase tracking-[0.25em] text-fog">
+          Members only.
+          <br />
+          Mother Superior knows who you are.
         </p>
       </div>
     </div>
