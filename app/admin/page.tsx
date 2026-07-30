@@ -232,7 +232,7 @@ function Dashboard() {
         {!hasPlayers ? (
           <p className="mt-4 text-sm text-fog">
             No players yet. Accounts arrive with the backend. Mother Superior cannot be ghosted
-            by people who do not exist, and she considers that a personal best.
+            by people who do not exist, and counts that a personal best.
           </p>
         ) : ghosts.length > 0 ? (
           <>
@@ -258,8 +258,8 @@ function Dashboard() {
           </>
         ) : (
           <p className="mt-4 text-sm text-fog">
-            Every pick is in before the deadline. Mother Superior is proud of no one, but she is
-            watching.
+            Every pick is in before the deadline. Mother Superior is proud of no one, but is
+            always watching.
           </p>
         )}
       </Card>
