@@ -253,7 +253,7 @@ function Dashboard() {
             <p className="mt-4 text-sm text-fog">
               The slate locks at kickoff, not kickoff-ish. Mother Superior does not chase, Mother
               Superior does not remind twice, and a missing pick scores exactly what it deserves.
-              Team. Win. Score. Don&apos;t be an idiot.
+              Don&apos;t be an idiot.
             </p>
           </>
         ) : (

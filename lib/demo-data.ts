@@ -50,9 +50,9 @@ export function participant(id: string): Participant | undefined {
 export const CONTESTS: Contest[] = [
   {
     week: 1,
-    title: "Old Reliable: Team / Win / Score",
+    title: "Old Reliable",
     blurb:
-      "Season opener at the Ford. The Saints are coming to Detroit to get their annual physical. You know the drill by now. TEAM, WIN, SCORE. Nothing cute. Nothing fresh. Don't be an idiot.",
+      "Season opener at the Ford. The Saints are coming to Detroit to get their annual physical. You know the drill by now. Nothing cute. Nothing fresh. Don't be an idiot.",
     motherSays: "LIONS WIN 31-13",
     hasLionsGame: true,
     lockAtUTC: "2026-09-13T17:00Z",
@@ -116,7 +116,7 @@ export const CONTESTS: Contest[] = [
     week: 4,
     title: "Sunday Night in Charlotte + The Total",
     blurb:
-      "Prime time against the Panthers. Same as always: TEAM, WIN, SCORE. This week your score does double duty: the combined total is OVER/UNDER 44.5. Your score pick decides your side automatically, so pick a score you actually believe in.",
+      "Prime time against the Panthers. Same as always. This week your score does double duty: the combined total is OVER/UNDER 44.5. Your score pick decides your side automatically, so pick a score you actually believe in.",
     motherSays: "LIONS WIN 34-20",
     hasLionsGame: true,
     lockAtUTC: "2026-10-05T00:20Z",
@@ -183,7 +183,7 @@ export const CONTESTS: Contest[] = [
     week: 7,
     title: "Packers Week. Even Money.",
     blurb:
-      "Green Bay at the Ford. Twelve points either way because this rivalry doesn't need Mother Superior's thumb on the scale. TEAM, WIN, SCORE.",
+      "Green Bay at the Ford. Twelve points either way because this rivalry doesn't need Mother Superior's thumb on the scale.",
     hasLionsGame: true,
     lockAtUTC: "2026-10-25T20:25Z",
     questions: [

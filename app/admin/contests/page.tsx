@@ -601,7 +601,7 @@ function SlatePreview({ contest }: { contest: Contest }) {
       )}
       {contest.scoreBonuses && (
         <p className="mt-3 text-xs text-fog">
-          Team. Win. Score. Closest-To, Exacto, Perfecto, and the Kiss of Death are in play.
+          Closest-To, Exacto, Perfecto, and the Kiss of Death are in play.
         </p>
       )}
     </Card>
@@ -723,7 +723,7 @@ function WeekEditor({
               checked={draft.scoreBonuses}
               onChange={(e) => set({ scoreBonuses: e.target.checked })}
             />
-            Score bonuses (Team. Win. Score.)
+            Score bonuses (winner + score)
           </label>
         </div>
       </div>

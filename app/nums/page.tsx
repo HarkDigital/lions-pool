@@ -775,7 +775,7 @@ export default function NumsPage() {
           {weekOpen ? (
             <>
               <span className="font-bold text-chalk">Week {week} is open.</span>{" "}
-              {"Team. Win. Score. Don't be an idiot."}
+              {"Don't be an idiot."}
             </>
           ) : (
             <>

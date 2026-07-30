@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 // Wraps every /admin route. Blocks rendering until the store hydrates, turns
 // away anyone who isn't the Commissioner, and gives Mother Superior a sub-nav
-// so she can stalk the whole office without touching the main nav.
+// to stalk the whole office without touching the main nav.
 // ---------------------------------------------------------------------------
 
 import { usePathname } from "next/navigation";

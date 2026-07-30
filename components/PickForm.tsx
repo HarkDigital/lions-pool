@@ -2,7 +2,7 @@
 
 // ---------------------------------------------------------------------------
 // The heart of the site: the pick form. Renders any contest shape Mother
-// Superior can build (TEAM/WIN/SCORE, moneylines, spreads, over/unders
+// Superior can build (winner + score, moneylines, spreads, over/unders
 // (derived or stat), props, and multi-game pick'em slates) and saves through
 // lib/store. Winner and score can never contradict: score edits drive the
 // winner automatically, and a contradictory winner click swaps the scores.
@@ -307,7 +307,7 @@ export function PickForm({ contest }: { contest: Contest }) {
       <Card accent className="p-6 text-center sm:p-8">
         <div className="display text-2xl">Make your pick</div>
         <p className="mt-2 text-sm text-fog">
-          Team. Win. Score. None of that happens from the bleachers.
+          None of that happens from the bleachers.
         </p>
         <Link
           href="/login/"
@@ -428,7 +428,7 @@ export function PickForm({ contest }: { contest: Contest }) {
 
   const problems: string[] = [];
   if (needsScore) {
-    if (draft.winner == null) problems.push("Pick a winner. TEAM. WIN. SCORE.");
+    if (draft.winner == null) problems.push("Pick a winner.");
     if (lionsN == null || oppN == null)
       problems.push("Give Mother Superior both scores: whole numbers, 0 to 99.");
   }

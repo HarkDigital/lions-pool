@@ -524,7 +524,7 @@ function GradingConsole() {
           {subs.length === 0 ? (
             <EmptyState title="No picks to grade">
               Nobody has submitted for Week {contest.week}. Mother Superior cannot grade silence.
-              Team. Win. Score. Remind them.
+              Remind them.
             </EmptyState>
           ) : (
             preview && (

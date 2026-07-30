@@ -71,7 +71,7 @@ export default function LoginPage() {
       <p className="text-center text-sm text-fog">
         {inDemo
           ? "Pick a character. The Machine is available if you enjoy losing."
-          : "Team. Win. Score. The season opens September 13."}
+          : "The season opens September 13."}
       </p>
     </div>
   );

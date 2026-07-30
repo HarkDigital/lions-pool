@@ -348,7 +348,7 @@ function SubmissionsInner() {
         <span className="font-bold uppercase tracking-wider text-sky">How this works live: </span>
         in the real thing, picks arrive through the site and lock automatically at kickoff. No
         email chains, no texts at 12:58, no deciphering anyone&apos;s handwriting. The machine
-        stamps the time and slams the door. Mother Superior just reads. Team. Win. Score.
+        stamps the time and slams the door. Mother Superior just reads.
       </Card>
     </div>
   );

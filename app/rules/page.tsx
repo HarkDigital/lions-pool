@@ -7,7 +7,7 @@ import { BonusValueChip } from "@/components/BonusValueChip";
 export const metadata: Metadata = {
   title: "House Rules: The Lions Pool",
   description:
-    "Team. Win. Score. The complete house rules of The Lions Pool, translated for polite company.",
+    "The complete house rules of The Lions Pool, translated for polite company.",
 };
 
 export default function RulesPage() {
@@ -26,7 +26,7 @@ export default function RulesPage() {
           Superior never has to explain it to you again.
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
-          <Pill tone="blue">Team. Win. Score.</Pill>
+          <Pill tone="blue">Winner and score</Pill>
           <Pill tone="gold">Bonuses for the bold</Pill>
           <Pill tone="loss">Zero for the wrong</Pill>
         </div>
@@ -36,7 +36,7 @@ export default function RulesPage() {
       <section className="space-y-4">
         <SectionTitle kicker="Rule One">The One Commandment</SectionTitle>
         <Card className="p-6 sm:p-8">
-          <div className="display text-4xl text-sky sm:text-5xl">Team. Win. Score.</div>
+          <div className="display text-4xl text-sky sm:text-5xl">The Winner And The Score.</div>
           <p className="mt-4 max-w-3xl text-sm leading-relaxed text-silver">
             Every Lions game, the pick form asks you for two things: the team that wins, and
             the exact final score of both teams. In the pool&rsquo;s traditional format:
@@ -49,7 +49,7 @@ export default function RulesPage() {
             That is the entire assignment. No banter. No essays. No being cute. Freshness is a
             fine quality in your real life, but this is not your real life. This is your Lions
             Pool life, and here, freshness is bad. The form accepts a winner and two numbers
-            for a reason: Mother Superior is not a palm reader, and she has no interest in
+            for a reason: Mother Superior is not a palm reader, and has no interest in
             becoming one.
           </p>
           <p className="mt-4 max-w-3xl text-sm leading-relaxed text-silver">
