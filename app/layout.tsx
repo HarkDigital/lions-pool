@@ -11,7 +11,7 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 export const metadata: Metadata = {
   title: "The Lions Pool",
   description:
-    "Team. Win. Score. The unconventional Detroit Lions pool — weekly slates, the points divide, and the season-long standings.",
+    "Team. Win. Score. The unconventional Detroit Lions pool: weekly slates, the points divide, and the season-long Nums.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

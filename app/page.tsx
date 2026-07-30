@@ -1,8 +1,8 @@
 "use client";
 
 // ---------------------------------------------------------------------------
-// "This Week" — the home page. Hero for the open week, Mother's blurb, the
-// slate board, the pick form, who's already in, and a top-3 recap.
+// "This Week": the home page. Hero for the open week, Mother Superior's
+// blurb, the slate board, the pick form, who's already in, and a top-3 recap.
 // ---------------------------------------------------------------------------
 
 import Link from "next/link";
@@ -21,6 +21,7 @@ import {
   effectiveContests,
   effectiveResults,
   effectiveSubmissions,
+  publicName,
   useHydrated,
   useStoreVersion,
 } from "@/lib/store";
@@ -57,7 +58,7 @@ function BoardQuestion({ q }: { q: Question }) {
     case "moneyline":
       return (
         <>
-          <QHeader>{q.title ?? "Moneyline — the points divide"}</QHeader>
+          <QHeader>{q.title ?? "Moneyline: the points divide"}</QHeader>
           <div className="mt-3 space-y-2">
             {q.options.map((o) => (
               <BoardRow
@@ -103,14 +104,14 @@ function BoardQuestion({ q }: { q: Question }) {
       return (
         <>
           <QHeader>
-            {q.title ?? `Over/Under ${fmtPts(q.line)} — ${q.label}`}
+            {q.title ?? `Over/Under ${fmtPts(q.line)}: ${q.label}`}
           </QHeader>
           <div className="mt-3 space-y-2">
             <BoardRow label={<>OVER {fmtPts(q.line)}</>} points={q.overPoints} />
             <BoardRow label={<>UNDER {fmtPts(q.line)}</>} points={q.underPoints} />
             {q.exactPoints != null && (
               <BoardRow
-                label={<>STRAIGHT MONEY — exactly {fmtPts(q.line)}</>}
+                label={<>STRAIGHT MONEY: exactly {fmtPts(q.line)}</>}
                 points={q.exactPoints}
               />
             )}
@@ -136,7 +137,7 @@ function BoardQuestion({ q }: { q: Question }) {
       return (
         <>
           <div className="flex flex-wrap items-center gap-2">
-            <QHeader>{q.title ?? `Pick'em — ${q.games.length} games`}</QHeader>
+            <QHeader>{q.title ?? `Pick'em: ${q.games.length} games`}</QHeader>
             <span className="text-xs font-semibold text-fog">
               +{fmtPts(q.pointsPerCorrect)} per correct
             </span>
@@ -204,7 +205,7 @@ export default function HomePage() {
   if (!contest) {
     return (
       <EmptyState title="No contest this week">
-        Mother will post the slate when Mother is ready.
+        Mother Superior will post the slate when Mother Superior is ready.
       </EmptyState>
     );
   }
@@ -247,7 +248,7 @@ export default function HomePage() {
                   {fmtGameDay(game.dateUTC)} · {fmtKickoff(game.dateUTC, game.timeTBD)}
                 </div>
                 <div>
-                  {game.venue} — {game.city}
+                  {game.venue}, {game.city}
                   {game.country ? `, ${game.country}` : ""}
                 </div>
                 <div className="text-fog">On {game.broadcast}</div>
@@ -257,12 +258,12 @@ export default function HomePage() {
 
           <div className="mt-8 flex flex-wrap items-center gap-3 border-t border-edge pt-4 text-sm text-silver">
             {statusPill(contest.status)}
-            <span>Picks lock at kickoff — {fmtDateTime(contest.lockAtUTC)}</span>
+            <span>Picks lock at kickoff: {fmtDateTime(contest.lockAtUTC)}</span>
           </div>
         </div>
       </Card>
 
-      {/* --- Mother's word ------------------------------------------------ */}
+      {/* --- Mother Superior's word --------------------------------------- */}
       {(contest.blurb || contest.motherSays) && (
         <Card className="overflow-hidden">
           {contest.blurb && (
@@ -276,7 +277,7 @@ export default function HomePage() {
           {contest.motherSays && (
             <div className="flex flex-wrap items-center gap-3 border-t border-gold/30 bg-gold/5 px-6 py-3">
               <span className="text-xs font-bold uppercase tracking-[0.2em] text-gold">
-                Mother Says
+                Mother Superior Says
               </span>
               <span className="display text-xl">{contest.motherSays}</span>
             </div>
@@ -304,7 +305,7 @@ export default function HomePage() {
         <h3 className="display text-2xl">Who&apos;s already in</h3>
         {inOrder.length === 0 ? (
           <p className="mt-3 text-sm text-fog">
-            Nobody yet. The inbox is empty and Mother is refreshing it.
+            Nobody yet. The inbox is empty and Mother Superior is refreshing it.
           </p>
         ) : (
           <div className="mt-4 flex flex-wrap gap-2">
@@ -320,7 +321,7 @@ export default function HomePage() {
                     className="inline-block h-2.5 w-2.5 rounded-full"
                     style={{ background: p.avatarColor }}
                   />
-                  {p.name}
+                  {hydrated ? publicName(p) : p.nickname}
                 </span>
               );
             })}
@@ -328,8 +329,8 @@ export default function HomePage() {
         )}
         <p className="mt-3 text-sm text-fog">
           {waitingOn === 0
-            ? "Everybody's in before kickoff. Mother is almost proud."
-            : `Waiting on ${waitingOn} more. Mother sees you.`}
+            ? "Everybody's in before kickoff. Mother Superior is almost proud."
+            : `Waiting on ${waitingOn} more. Mother Superior sees you.`}
         </p>
       </Card>
 
@@ -337,12 +338,12 @@ export default function HomePage() {
       {top3.length > 0 && (
         <section>
           <div className="flex flex-wrap items-end justify-between gap-4">
-            <SectionTitle kicker={`Through Week ${lastGraded}`}>The race</SectionTitle>
+            <SectionTitle kicker={`Through Week ${lastGraded}`}>The Nums so far</SectionTitle>
             <Link
-              href="/standings/"
+              href="/nums/"
               className="text-sm font-semibold text-sky transition hover:text-chalk"
             >
-              Full standings →
+              Full Nums →
             </Link>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -352,7 +353,7 @@ export default function HomePage() {
               return (
                 <Link
                   key={row.userId}
-                  href="/standings/"
+                  href="/nums/"
                   className="flex items-center gap-4 rounded-xl border border-edge bg-panel p-4 transition hover:border-honolulu/60 hover:bg-panel-2"
                 >
                   <span className="display text-4xl text-fog">{row.rank}</span>
@@ -361,7 +362,9 @@ export default function HomePage() {
                       className="h-2.5 w-2.5 shrink-0 rounded-full"
                       style={{ background: p.avatarColor }}
                     />
-                    <span className="truncate text-sm font-bold text-silver">{p.name}</span>
+                    <span className="truncate text-sm font-bold text-silver">
+                      {hydrated ? publicName(p) : p.nickname}
+                    </span>
                   </span>
                   <span className="display text-2xl">{fmtPts(row.total)}</span>
                 </Link>

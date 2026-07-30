@@ -12,7 +12,7 @@
 // ---------------------------------------------------------------------------
 
 import { useSyncExternalStore } from "react";
-import type { Contest, Submission, WeekResults } from "./types";
+import type { Contest, Participant, PaymentRecord, Submission, WeekResults } from "./types";
 import {
   CONTESTS,
   DEMO_NOW,
@@ -26,6 +26,8 @@ const KEYS = {
   subs: "lionspool.subs",
   contests: "lionspool.contests",
   results: "lionspool.results",
+  nicknames: "lionspool.nicknames",
+  payments: "lionspool.payments",
 } as const;
 
 const listeners = new Set<() => void>();
@@ -195,6 +197,35 @@ export function saveResults(results: WeekResults) {
   const local = readJSON<WeekResults[]>(KEYS.results, []);
   const rest = local.filter((r) => r.week !== results.week);
   writeJSON(KEYS.results, [...rest, results]);
+}
+
+// --- Nicknames (Commissioner-set, admin overlay) -----------------------------
+
+/**
+ * The ONLY name public pages may render. Real names and emails stay in the
+ * admin wing; players cannot set or change their own nickname.
+ */
+export function publicName(p: Participant): string {
+  const overlay = readJSON<Record<string, string>>(KEYS.nicknames, {});
+  return overlay[p.id]?.trim() || p.nickname;
+}
+
+export function saveNickname(userId: string, nickname: string) {
+  const overlay = readJSON<Record<string, string>>(KEYS.nicknames, {});
+  writeJSON(KEYS.nicknames, { ...overlay, [userId]: nickname });
+}
+
+// --- Payments (Commissioner bookkeeping) -------------------------------------
+
+export function paymentFor(userId: string): PaymentRecord {
+  const local = readJSON<PaymentRecord[]>(KEYS.payments, []);
+  return local.find((r) => r.userId === userId) ?? { userId, paid: false };
+}
+
+export function savePayment(record: PaymentRecord) {
+  const local = readJSON<PaymentRecord[]>(KEYS.payments, []);
+  const rest = local.filter((r) => r.userId !== record.userId);
+  writeJSON(KEYS.payments, [...rest, record]);
 }
 
 /** Wipe every demo overlay and start clean. */

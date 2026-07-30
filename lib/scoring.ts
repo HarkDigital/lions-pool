@@ -61,14 +61,14 @@ function gradeMoneyline(
   if (!opt) return null;
   const correct = answer === actual;
   return {
-    label: `${teamInfo(answer).short} to win — ${correct ? "hit" : "miss"}`,
+    label: `${teamInfo(answer).short} to win: ${correct ? "hit" : "miss"}`,
     points: correct ? opt.points : 0,
     kind: "question",
   };
 }
 
 /**
- * Mother's math for derived-spread weeks: the side a winner+score pick lands
+ * Mother Superior's math for derived-spread weeks: the side a winner+score pick lands
  * on. Shared with the pick form so the preview, the stored answer, and the
  * grade can never disagree.
  */
@@ -103,8 +103,8 @@ function gradeSpread(
   const pickedFav = picked === q.favorite;
   const correct = pickedFav === favCovers;
   const label = pickedFav
-    ? `${teamInfo(q.favorite).short} −${fmtPts(q.line)} — ${correct ? "covered" : "no cover"}`
-    : `${teamInfo(q.dog).short} +${fmtPts(q.line)} — ${correct ? "covered" : "no cover"}`;
+    ? `${teamInfo(q.favorite).short} −${fmtPts(q.line)}: ${correct ? "covered" : "no cover"}`
+    : `${teamInfo(q.dog).short} +${fmtPts(q.line)}: ${correct ? "covered" : "no cover"}`;
   return {
     label,
     points: correct ? (pickedFav ? q.favoritePoints : q.dogPoints) : 0,
@@ -146,7 +146,7 @@ function gradeOverUnder(
   }
   const word = answer === "exact" ? "Straight Money on" : answer === "over" ? "Over" : "Under";
   return {
-    label: `${word} ${fmtPts(q.line)} (${q.label}: ${fmtPts(actual)}) — ${correct ? "hit" : "miss"}`,
+    label: `${word} ${fmtPts(q.line)} (${q.label}: ${fmtPts(actual)}): ${correct ? "hit" : "miss"}`,
     points,
     kind: "question",
   };
@@ -158,7 +158,7 @@ function gradeProp(q: PropQ, answer: string | undefined, results: WeekResults): 
   const picked = q.options.find((o) => o.key === answer);
   const correct = answer === actual;
   return {
-    label: `${q.question} → ${picked?.label ?? answer} — ${correct ? "hit" : "miss"}`,
+    label: `${q.question} → ${picked?.label ?? answer}: ${correct ? "hit" : "miss"}`,
     points: correct ? q.points : 0,
     kind: "question",
   };
@@ -188,7 +188,7 @@ function gradePickem(
     });
   } else if (fullSlate && correct === 0 && q.allWrongTotal != null) {
     items.push({
-      label: `Perfectly wrong: 0/${n} — Mother pays out for the sweep`,
+      label: `Perfectly wrong: 0/${n}. Mother Superior pays out for the sweep`,
       points: q.allWrongTotal,
       kind: "question",
     });
@@ -270,7 +270,7 @@ export function gradeScoreBonuses(
       perfecto.add(s.userId);
       someoneExactLions = someoneExactOpp = true;
       add(s.userId, {
-        label: "PERFECTO — nailed the final score",
+        label: "PERFECTO: nailed the final score",
         points: BONUS.PERFECTO,
         kind: "bonus",
         bonusType: "perfecto",
@@ -280,19 +280,19 @@ export function gradeScoreBonuses(
     if (p.lions === O && p.opp === L && L !== O) {
       kod.add(s.userId);
       add(s.userId, {
-        label: "KISS OF DEATH — exact reverse of the final score",
+        label: "KISS OF DEATH: exact reverse of the final score",
         points: BONUS.KISS_OF_DEATH,
         kind: "penalty",
         bonusType: "kod",
       });
       // A reversed score can still nail one side when the game is close, but
-      // per Mother the kiss stands alone. Continue: no exacto stacking.
+      // per Mother Superior the kiss stands alone. Continue: no exacto stacking.
       continue;
     }
     if (p.lions === L) {
       someoneExactLions = true;
       add(s.userId, {
-        label: `EXACTO — called Lions ${L} on the nose`,
+        label: `EXACTO: called Lions ${L} on the nose`,
         points: BONUS.EXACTO,
         kind: "bonus",
         bonusType: "exacto",
@@ -301,7 +301,7 @@ export function gradeScoreBonuses(
     if (p.opp === O) {
       someoneExactOpp = true;
       add(s.userId, {
-        label: `EXACTO — called the opponent's ${O} on the nose`,
+        label: `EXACTO: called the opponent's ${O} on the nose`,
         points: BONUS.EXACTO,
         kind: "bonus",
         bonusType: "exacto",
@@ -326,7 +326,7 @@ export function gradeScoreBonuses(
       const diff = Math.abs(side.get(s.scorePick!) - side.actual);
       if (diff === best) {
         add(s.userId, {
-          label: `CLOSEST TO — ${side.label} score (off by ${diff})`,
+          label: `CLOSEST TO: ${side.label} score (off by ${diff})`,
           points: BONUS.CLOSEST,
           kind: "bonus",
           bonusType: "closest",
@@ -379,7 +379,7 @@ export function gradeWeek(
       const qs = contest.questions.filter((q) => contest.comboBonus!.questionIds.includes(q.id));
       if (qs.length > 0 && qs.every((q) => isQuestionCorrect(q, sub, contest, results))) {
         items.push({
-          label: `Swept all ${qs.length} — combo bonus`,
+          label: `Swept all ${qs.length}: combo bonus`,
           points: contest.comboBonus.allCorrectBonus,
           kind: "bonus",
         });
@@ -401,6 +401,29 @@ export interface SeasonInput {
   contest: Contest;
   results: WeekResults;
   subs: Submission[];
+}
+
+/** One column of the season graph: everyone's rank/total after that week. */
+export interface WeekRanks {
+  week: number;
+  ranks: Record<string, { rank: number; total: number; weekPts?: number }>;
+}
+
+/**
+ * Standings recomputed after each successive graded week, for the season
+ * movement graph. Cheap: one computeStandings call per prefix.
+ */
+export function rankProgression(userIds: string[], weeks: SeasonInput[]): WeekRanks[] {
+  const sorted = [...weeks].sort((a, b) => a.contest.week - b.contest.week);
+  return sorted.map((w, i) => {
+    const rows = computeStandings(userIds, sorted.slice(0, i + 1));
+    return {
+      week: w.contest.week,
+      ranks: Object.fromEntries(
+        rows.map((r) => [r.userId, { rank: r.rank, total: r.total, weekPts: r.weekly[w.contest.week] }]),
+      ),
+    };
+  });
 }
 
 export function computeStandings(

@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 // /schedule — the full 2026 Lions season, one card per week. Graded weeks
 // show the final; the open week points at the pick form; everything else
-// waits for Mother to drop the slate.
+// waits for Mother Superior to drop the slate.
 // ---------------------------------------------------------------------------
 
 import Link from "next/link";
@@ -17,7 +17,7 @@ import {
   useStoreVersion,
 } from "@/lib/store";
 import { teamInfo } from "@/lib/teams";
-import { fmtGameDay, fmtKickoff } from "@/lib/format";
+import { fmtGameDay, fmtKickoff, fmtScore } from "@/lib/format";
 import { Card, Pill, STATUS_TONE, SectionTitle } from "@/components/ui";
 import { TeamLogo } from "@/components/TeamLogo";
 
@@ -41,13 +41,13 @@ function StatusRail({
     return (
       <div className="flex flex-col items-start gap-1.5 sm:items-end">
         <Pill tone={won ? "win" : "loss"}>
-          {won ? "W" : lions === opp ? "T" : "L"} {lions}–{opp}
+          {won ? "W" : lions === opp ? "T" : "L"} {fmtScore(lions, opp)}
         </Pill>
         <Link
-          href="/standings/"
+          href="/nums/"
           className="text-xs font-semibold text-sky hover:underline"
         >
-          See the standings →
+          See the Nums →
         </Link>
       </div>
     );
@@ -63,7 +63,7 @@ function StatusRail({
     );
   }
   if (contest?.status === "locked") {
-    return <Pill tone={STATUS_TONE.locked}>Locked — grading soon</Pill>;
+    return <Pill tone={STATUS_TONE.locked}>Locked, grading soon</Pill>;
   }
   return <Pill>Slate drops soon</Pill>;
 }
@@ -98,13 +98,13 @@ function ByeCard({
         </div>
         <div className="min-w-0 flex-1">
           <div className="display text-2xl leading-tight">
-            Bye Week — Around-the-League Slate
+            Bye Week: Around-the-League Slate
           </div>
           <div className="mt-1 text-sm text-silver">
             The Lions rest. You do not.
           </div>
           <div className="text-xs text-fog">
-            No Lions game, but the pool still runs — a five-game slate from
+            No Lions game, but the pool still runs: a five-game slate from
             around the league. Attendance is not optional.
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -154,7 +154,7 @@ function GameCard({
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <Pill>{game.broadcast}</Pill>
-            {isMunich && <Pill tone="gold">International — Munich</Pill>}
+            {isMunich && <Pill tone="gold">International: Munich</Pill>}
             {isThanksgiving && <Pill tone="gold">Thanksgiving</Pill>}
           </div>
         </div>
@@ -183,11 +183,6 @@ export default function SchedulePage() {
         <SectionTitle kicker={`${SEASON} Season`}>Lions Schedule</SectionTitle>
         <Pill>All times Eastern</Pill>
       </div>
-      <p className="mt-3 max-w-2xl text-sm text-fog">
-        Eighteen weeks, one bye, and a 9:30 a.m. kickoff in Germany. Every week
-        is a slate, home games get the blue stripe, and the format never
-        changes: Team. Win. Score.
-      </p>
 
       <div className="mt-6 space-y-3">
         {ALL_WEEKS.map((week) => {
@@ -211,9 +206,9 @@ export default function SchedulePage() {
 
       <Card className="mt-8 p-4 text-xs text-fog">
         Schedule, venues, and team logos are sourced from the league. Kickoff
-        times can flex late in the season — when the league moves a game, the
-        slate moves with it, and Mother does not send reminders. Don&apos;t be
-        an idiot.
+        times can flex late in the season. When the league moves a game, the
+        slate moves with it, and Mother Superior does not send reminders.
+        Don&apos;t be an idiot.
       </Card>
     </div>
   );

@@ -2,8 +2,8 @@
 
 // ---------------------------------------------------------------------------
 // Wraps every /admin route. Blocks rendering until the store hydrates, turns
-// away anyone who isn't the Commissioner, and gives Mother a sub-nav so she
-// can stalk the whole office without touching the main nav.
+// away anyone who isn't the Commissioner, and gives Mother Superior a sub-nav
+// so she can stalk the whole office without touching the main nav.
 // ---------------------------------------------------------------------------
 
 import Link from "next/link";
@@ -17,6 +17,8 @@ const ADMIN_LINKS = [
   { href: "/admin/submissions/", label: "Submissions" },
   { href: "/admin/contests/", label: "Contest Builder" },
   { href: "/admin/grading/", label: "Grading" },
+  { href: "/admin/players/", label: "Players" },
+  { href: "/admin/payments/", label: "Payments" },
 ];
 
 const normalize = (p: string) => p.replace(/\/+$/, "") || "/";
@@ -39,8 +41,8 @@ export function AdminGate({ children }: { children: ReactNode }) {
       <Card className="mx-auto max-w-xl p-10 text-center">
         <div className="display text-3xl">Commissioner access only</div>
         <p className="mt-3 text-sm leading-relaxed text-fog">
-          This wing of the pool belongs to Mother. The slates, the inbox, the grading desk —
-          all of it. If you are not the Commissioner, there is nothing for you here except
+          This wing of the pool belongs to Mother Superior. The slates, the inbox, the grading
+          desk, all of it. If you are not the Commissioner, there is nothing for you here except
           consequences. Go back to your picks.
         </p>
         <div className="mt-6">
@@ -48,7 +50,7 @@ export function AdminGate({ children }: { children: ReactNode }) {
             href="/login/"
             className="inline-flex items-center justify-center gap-2 rounded-lg border border-transparent bg-honolulu px-4 py-2 text-sm font-bold text-white shadow-[0_4px_20px_-6px_rgba(0,118,182,0.7)] transition hover:bg-honolulu-deep"
           >
-            Sign in as Mother to see the demo admin
+            Sign in as Mother Superior to see the demo admin
           </Link>
         </div>
       </Card>
@@ -74,7 +76,7 @@ export function AdminGate({ children }: { children: ReactNode }) {
           </Link>
         ))}
         <span className="ml-auto hidden pr-2 text-xs font-semibold uppercase tracking-[0.2em] text-gold/70 sm:inline">
-          Mother&apos;s Office
+          Mother Superior&apos;s Office
         </span>
       </div>
       {children}

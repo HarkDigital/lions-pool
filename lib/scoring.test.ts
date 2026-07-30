@@ -11,9 +11,11 @@ import {
   computeStandings,
   gradeScoreBonuses,
   gradeWeek,
+  rankProgression,
   type SeasonInput,
 } from "./scoring";
 import { playerSubmissions } from "./store";
+import { TIE } from "./types";
 import type {
   Contest,
   MoneylineQ,
@@ -109,11 +111,12 @@ describe("moneyline", () => {
   const contest = makeContest([ML]);
 
   it("pays the favorite its own (small) number, graded from the final score alone", () => {
-    // No per-question value entered — the winner must come from 34–17.
+    // No per-question value entered — the winner must come from 34-17.
     const g = gradeOne(contest, makeResults(34, 17), makeSub("a", { ml: "DET" }));
     expect(g.total).toBe(4.5);
     expect(g.items).toHaveLength(1);
     expect(g.items[0].kind).toBe("question");
+    expect(g.items[0].label).toBe("Lions to win: hit");
   });
 
   it("wrong side gets ZERO POINTS — never negative", () => {
@@ -452,6 +455,7 @@ describe("pickem", () => {
     const g = gradeOne(c, r, makeSub("a", { pk: { ...WINNERS } }));
     expect(g.total).toBe(25);
     expect(g.items).toHaveLength(1);
+    expect(g.items[0].label).toBe("Ran the table: 5/5 correct");
   });
 
   it("all 5 wrong: allWrongTotal REPLACES the zero with 30 — incompetence at scale", () => {
@@ -461,6 +465,7 @@ describe("pickem", () => {
       makeSub("a", { pk: { g1: "CHI", g2: "CLE", g3: "LAC", g4: "DAL", g5: "WSH" } }),
     );
     expect(g.total).toBe(30);
+    expect(g.items[0].label).toBe("Perfectly wrong: 0/5. Mother Superior pays out for the sweep");
   });
 
   it("games missing a result are simply not graded — no credit, no penalty", () => {
@@ -562,7 +567,8 @@ describe("combo bonus", () => {
       makeSub("a", { cml: "DET", cqb: "goff", crb: "gibbs", cwr: "stbrown" }),
     );
     expect(g.total).toBe(25);
-    expect(g.items.some((i) => i.kind === "bonus")).toBe(true);
+    const bonus = g.items.find((i) => i.kind === "bonus");
+    expect(bonus?.label).toBe("Swept all 4: combo bonus");
   });
 
   it("any single miss kills the combo: 3 of 4 is just 15", () => {
@@ -710,7 +716,55 @@ describe("score bonuses", () => {
   });
 });
 
-// --- Players only: Mother doesn't pick, Mother grades ------------------------
+// --- Tie picks (winner TIE, equal scores) ------------------------------------
+
+describe("tie picks", () => {
+  const contest = makeContest([ML], { scoreBonuses: true });
+
+  it("a TIE score pick earns no moneyline points but still cashes an exacto", () => {
+    // Final DET 34-17. The tie picker's 17-17 nails the opponent's 17; the
+    // other player is closer on the Lions side, isolating the exacto.
+    const grades = gradeWeek(contest, makeResults(34, 17), [
+      makeSub("t", { ml: TIE }, { winner: TIE, lions: 17, opp: 17 }),
+      makeSub("o", { ml: "DET" }, { winner: "DET", lions: 33, opp: 24 }),
+    ]);
+    const t = grades.find((g) => g.userId === "t")!;
+    const o = grades.find((g) => g.userId === "o")!;
+    // TIE is not a payable moneyline side: no question row, no points, no crash.
+    expect(t.items.filter((i) => i.kind === "question")).toHaveLength(0);
+    expect(t.items.map((i) => i.bonusType)).toEqual(["exacto"]);
+    expect(t.total).toBe(BONUS.EXACTO);
+    expect(o.items[0].label).toBe("Lions to win: hit");
+  });
+
+  it("a TIE score pick can win closest-to like anyone else", () => {
+    // Final 23-20. The tie picker's 21-21 is closest on both sides.
+    const map = gradeScoreBonuses(contest, makeResults(23, 20), [
+      makeSub("t", {}, { winner: TIE, lions: 21, opp: 21 }),
+      makeSub("o", {}, { winner: "DET", lions: 30, opp: 13 }),
+    ]);
+    const items = map.get("t") ?? [];
+    expect(items.map((i) => i.bonusType)).toEqual(["closest", "closest"]);
+    expect(items.reduce((s, i) => s + i.points, 0)).toBe(10);
+  });
+
+  it("a game that actually ends tied grades without crashing", () => {
+    const grades = gradeWeek(contest, makeResults(20, 20), [
+      makeSub("t", { ml: TIE }, { winner: TIE, lions: 20, opp: 20 }),
+      makeSub("o", { ml: "DET" }, { winner: "DET", lions: 24, opp: 20 }),
+    ]);
+    const t = grades.find((g) => g.userId === "t")!;
+    const o = grades.find((g) => g.userId === "o")!;
+    // Nobody won, so the Lions moneyline is a miss worth zero.
+    const oml = o.items.find((i) => i.kind === "question")!;
+    expect(oml.points).toBe(0);
+    expect(oml.label).toBe("Lions to win: miss");
+    // Calling the tie on the nose is a perfecto like any other.
+    expect(t.total).toBe(BONUS.PERFECTO);
+  });
+});
+
+// --- Players only: Mother Superior doesn't pick, Mother Superior grades -------
 
 describe("playerSubmissions", () => {
   const bonusC = makeContest([], { scoreBonuses: true });
@@ -758,17 +812,19 @@ describe("gradeWeek on demo data", () => {
     });
   });
 
-  it("Week 2 (BUF 30, DET 27): Tina's perfecto, Eddie's kiss of death", () => {
+  it("Week 2 (BUF 30, DET 27): Tina's perfecto, Eddie's kiss of death, Muscle sat out", () => {
     const { contest, results, subs } = demoWeek(2);
     const grades = gradeWeek(contest, results, subs);
+    // Polish Muscle never submitted for Week 2, so the engine grades 9 rows.
+    expect(grades).toHaveLength(9);
+    expect(grades.some((g) => g.userId === "muscle")).toBe(false);
     expect(totalsByUser(grades)).toEqual({
-      tina: 28, // 8 spread + 20 perfecto (27–30)
-      eddie: -20, // spread miss + exact reverse (30–27)
+      tina: 28, // 8 spread + 20 perfecto (27-30)
+      eddie: -20, // spread miss + exact reverse (30-27)
       denny: 16, // 8 spread + 8 exacto (Lions 27)
       bigcat: 8,
       machine: 8,
       gary: 0,
-      muscle: 0,
       chops: 8,
       uncle: 0,
       intern: 8,
@@ -776,10 +832,12 @@ describe("gradeWeek on demo data", () => {
     const tina = grades.find((g) => g.userId === "tina");
     const eddie = grades.find((g) => g.userId === "eddie");
     const denny = grades.find((g) => g.userId === "denny");
-    expect(tina?.items.some((i) => i.label.startsWith("PERFECTO"))).toBe(true);
-    expect(eddie?.items.some((i) => i.label.startsWith("KISS") && i.points === -20)).toBe(true);
+    expect(tina?.items.some((i) => i.label === "PERFECTO: nailed the final score")).toBe(true);
+    expect(
+      eddie?.items.some((i) => i.label.startsWith("KISS OF DEATH") && i.points === -20),
+    ).toBe(true);
     // Tina's perfecto must not rob Denny of his exacto.
-    expect(denny?.items.some((i) => i.label.startsWith("EXACTO"))).toBe(true);
+    expect(denny?.items.some((i) => i.label === "EXACTO: called Lions 27 on the nose")).toBe(true);
   });
 
   it("Week 3 (DET 41, NYJ 10): no exactos, closest-to pays out — ties on both sides", () => {
@@ -833,7 +891,7 @@ describe("computeStandings on demo data", () => {
       ["gary", 6, 13], // 4.5 + 0 + 8.5
       ["intern", 7, 11.5], // 0 + 8 + 3.5
       ["machine", 8, 8], // 0 + 8 + 0
-      ["muscle", 8, 8], // 4.5 + 0 + 3.5
+      ["muscle", 8, 8], // 4.5 + 3.5, no W2 pick (the Shame list remembers)
       ["eddie", 10, -12], // 4.5 − 20 + 3.5
     ]);
   });
@@ -857,12 +915,15 @@ describe("computeStandings on demo data", () => {
     expect(row("eddie").prevRank).toBe(10);
   });
 
-  it("weekly maps carry ONLY graded weeks", () => {
+  it("weekly maps carry ONLY graded weeks the player actually entered", () => {
     for (const r of rows) {
-      expect(Object.keys(r.weekly).map(Number).sort((a, b) => a - b)).toEqual([1, 2, 3]);
+      const expected = r.userId === "muscle" ? [1, 3] : [1, 2, 3];
+      expect(Object.keys(r.weekly).map(Number).sort((a, b) => a - b)).toEqual(expected);
     }
     expect(row("tina").weekly).toEqual({ 1: 12.5, 2: 28, 3: 3.5 });
     expect(row("eddie").weekly).toEqual({ 1: 4.5, 2: -20, 3: 3.5 });
+    // No Week 2 submission means no Week 2 entry at all — absent, not zero.
+    expect(row("muscle").weekly).toEqual({ 1: 4.5, 3: 3.5 });
   });
 
   it("bonus tallies: Tina's perfecto leads, Eddie wears the kiss of death", () => {
@@ -876,5 +937,54 @@ describe("computeStandings on demo data", () => {
     expect(row("machine").bonuses).toEqual({ closest: 0, exacto: 0, perfecto: 0, kod: 0 });
     expect(row("muscle").bonuses).toEqual({ closest: 0, exacto: 0, perfecto: 0, kod: 0 });
     expect(row("intern").bonuses).toEqual({ closest: 0, exacto: 0, perfecto: 0, kod: 0 });
+  });
+});
+
+// --- rankProgression on the actual demo season -------------------------------
+
+describe("rankProgression on demo data", () => {
+  const weeks: SeasonInput[] = CONTESTS.filter((c) => c.status === "graded").map((c) =>
+    demoWeek(c.week),
+  );
+  const ids = PLAYERS.map((p) => p.id);
+  const prog = rankProgression(ids, weeks);
+
+  it("returns one column per graded week, in week order", () => {
+    expect(prog.map((c) => c.week)).toEqual([1, 2, 3]);
+  });
+
+  it("every column carries all players and matches computeStandings on that prefix", () => {
+    prog.forEach((col, i) => {
+      const rows = computeStandings(ids, weeks.slice(0, i + 1));
+      expect(Object.keys(col.ranks).sort()).toEqual([...ids].sort());
+      for (const r of rows) {
+        expect(col.ranks[r.userId].rank).toBe(r.rank);
+        expect(col.ranks[r.userId].total).toBe(r.total);
+        expect(col.ranks[r.userId].weekPts).toBe(r.weekly[col.week]);
+      }
+    });
+  });
+
+  it("week 1: the exacto crowd shares the lead at 12.5", () => {
+    expect(prog[0].ranks["bigcat"].rank).toBe(1);
+    expect(prog[0].ranks["tina"].rank).toBe(1);
+    expect(prog[0].ranks["bigcat"].total).toBe(12.5);
+    expect(prog[0].ranks["tina"].total).toBe(12.5);
+  });
+
+  it("the final column IS the full-season board", () => {
+    const finalRows = computeStandings(ids, weeks);
+    const last = prog[prog.length - 1];
+    for (const r of finalRows) {
+      expect(last.ranks[r.userId].rank).toBe(r.rank);
+      expect(last.ranks[r.userId].total).toBe(r.total);
+    }
+    expect(last.ranks["tina"]).toEqual({ rank: 1, total: 44, weekPts: 3.5 });
+  });
+
+  it("a skipped week leaves weekPts undefined, not zero", () => {
+    // Muscle ghosted Week 2: cumulative total holds at 4.5, no week points.
+    expect(prog[1].ranks["muscle"].weekPts).toBeUndefined();
+    expect(prog[1].ranks["muscle"].total).toBe(4.5);
   });
 });

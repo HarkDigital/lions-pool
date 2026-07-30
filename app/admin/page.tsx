@@ -1,8 +1,9 @@
 "use client";
 
 // ---------------------------------------------------------------------------
-// /admin/ — Mother's commissioner dashboard. Headline numbers, the wall of
-// shame for missing picks, and the full roster with live season standings.
+// /admin/ — Mother Superior's commissioner dashboard. Headline numbers, the
+// wall of shame for missing picks, and the full roster with live season Nums
+// plus admin-only identity (real names, emails) and payment status.
 // Everything is derived from the store; nothing is hand-entered.
 // ---------------------------------------------------------------------------
 
@@ -17,6 +18,8 @@ import {
   effectiveContests,
   effectiveResults,
   effectiveSubmissions,
+  paymentFor,
+  publicName,
   useStoreVersion,
 } from "@/lib/store";
 import type { StandingsRow } from "@/lib/types";
@@ -47,7 +50,7 @@ function BonusChips({ row }: { row: StandingsRow }) {
   if (row.bonuses.closest > 0)
     chips.push({ label: `Closest-To ×${row.bonuses.closest}`, tone: "gold" });
   if (row.bonuses.kod > 0) chips.push({ label: `Kiss of Death ×${row.bonuses.kod}`, tone: "loss" });
-  if (chips.length === 0) return <span className="text-xs text-fog">—</span>;
+  if (chips.length === 0) return <span className="text-xs text-fog">-</span>;
   return (
     <span className="flex flex-wrap gap-1">
       {chips.map((c) => (
@@ -89,13 +92,13 @@ function Dashboard() {
 
   return (
     <div className="space-y-8">
-      <SectionTitle kicker="Mother's Office">Commissioner Dashboard</SectionTitle>
+      <SectionTitle kicker="Mother Superior's Office">Commissioner Dashboard</SectionTitle>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Players"
           value={String(PLAYERS.length)}
-          sub="Plus Mother, who does not lose"
+          sub="Plus Mother Superior, who does not lose"
         />
         <StatCard
           label={`Week ${CURRENT_WEEK} picks in`}
@@ -120,7 +123,7 @@ function Dashboard() {
 
       <Card className="p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="display text-2xl">Still ghosting Mother</h3>
+          <h3 className="display text-2xl">Still ghosting Mother Superior</h3>
           <Pill tone={ghosts.length > 0 ? "loss" : "win"}>
             {ghosts.length > 0 ? `${ghosts.length} missing` : "All in"}
           </Pill>
@@ -137,19 +140,20 @@ function Dashboard() {
                     className="inline-block h-2.5 w-2.5 rounded-full"
                     style={{ background: p.avatarColor }}
                   />
-                  {p.name}
+                  {publicName(p)} ({p.name})
                 </span>
               ))}
             </div>
             <p className="mt-4 text-sm text-fog">
-              The slate locks at kickoff, not kickoff-ish. Mother does not chase, Mother does not
-              remind twice, and a missing pick scores exactly what it deserves. Team. Win. Score.
-              Don&apos;t be an idiot.
+              The slate locks at kickoff, not kickoff-ish. Mother Superior does not chase, Mother
+              Superior does not remind twice, and a missing pick scores exactly what it deserves.
+              Team. Win. Score. Don&apos;t be an idiot.
             </p>
           </>
         ) : (
           <p className="mt-4 text-sm text-fog">
-            Every pick is in before the deadline. Mother is proud of no one, but she is watching.
+            Every pick is in before the deadline. Mother Superior is proud of no one, but she is
+            watching.
           </p>
         )}
       </Card>
@@ -158,7 +162,9 @@ function Dashboard() {
         <div className="border-b border-edge px-6 py-4">
           <h3 className="display text-2xl">The Roster</h3>
           <p className="mt-1 text-xs text-fog">
-            Season totals computed live from the graded weeks. No hand math, no appeals.
+            Season totals computed live from the graded weeks. No hand math, no appeals. The bold
+            name is the public nickname (all the pool ever sees); real names and emails stay in
+            this office.
           </p>
         </div>
         <div className="table-scroll">
@@ -169,17 +175,19 @@ function Dashboard() {
                 <th className="px-4 py-3">Player</th>
                 <th className="px-4 py-3 text-right">Season pts</th>
                 <th className="px-4 py-3">Bonuses</th>
+                <th className="px-4 py-3">Paid</th>
                 <th className="px-4 py-3 text-right">Picks</th>
               </tr>
             </thead>
             <tbody>
               {roster.map((p) => {
                 const row = rowFor.get(p.id);
+                const payment = paymentFor(p.id);
                 return (
                   <tr key={p.id} className="border-b border-edge last:border-0">
                     <td className="px-4 py-3">
                       <span className="display text-xl">
-                        {row ? ordinal(row.rank) : "—"}
+                        {row ? ordinal(row.rank) : "-"}
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -189,10 +197,9 @@ function Dashboard() {
                           style={{ background: p.avatarColor }}
                         />
                         <span>
-                          <span className="block font-semibold text-silver">{p.name}</span>
-                          {p.nickname && (
-                            <span className="block text-xs text-fog">{p.nickname}</span>
-                          )}
+                          <span className="block font-bold text-chalk">{publicName(p)}</span>
+                          <span className="block text-xs text-silver">{p.name}</span>
+                          {p.email && <span className="block text-xs text-fog">{p.email}</span>}
                         </span>
                       </span>
                     </td>
@@ -201,7 +208,14 @@ function Dashboard() {
                         {row ? fmtPts(row.total) : "0"}
                       </span>
                     </td>
-                    <td className="px-4 py-3">{row ? <BonusChips row={row} /> : "—"}</td>
+                    <td className="px-4 py-3">{row ? <BonusChips row={row} /> : "-"}</td>
+                    <td className="px-4 py-3">
+                      <Link href="/admin/payments/" className="inline-flex">
+                        <Pill tone={payment.paid ? "win" : "loss"}>
+                          {payment.paid ? "Paid" : "Unpaid"}
+                        </Pill>
+                      </Link>
+                    </td>
                     <td className="px-4 py-3 text-right">
                       <Link
                         href="/admin/submissions/"

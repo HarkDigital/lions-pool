@@ -1,0 +1,764 @@
+"use client";
+
+// ---------------------------------------------------------------------------
+// Nums: the season table, the movement graph, the bonus ledgers, and Shame.
+// Every number on this page is computed live by lib/scoring.ts from graded
+// contests. There is no hand-entered table.
+// Public page: nicknames only, via publicName().
+// ---------------------------------------------------------------------------
+
+import { Fragment, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import Link from "next/link";
+import {
+  computeStandings,
+  gradeWeek,
+  rankProgression,
+  type SeasonInput,
+} from "@/lib/scoring";
+import type {
+  LineItem,
+  Participant,
+  ScoreBonusType,
+  StandingsRow,
+  UserWeekGrade,
+} from "@/lib/types";
+import {
+  CONTESTS,
+  CURRENT_WEEK,
+  PLAYERS,
+  RESULTS,
+  participant,
+  submissionsForWeek,
+} from "@/lib/demo-data";
+import {
+  effectiveContests,
+  effectiveResults,
+  effectiveSubmissions,
+  publicName,
+  useHydrated,
+  useStoreVersion,
+} from "@/lib/store";
+import { fmtPts, signedPts } from "@/lib/format";
+import { SeasonGraph, type GraphPlayer } from "@/components/SeasonGraph";
+import { Card, EmptyState, Pill, SectionTitle } from "@/components/ui";
+
+// --- Data assembly ----------------------------------------------------------
+
+/**
+ * Graded weeks, derived dynamically: contest.status === "graded" AND results
+ * exist. Pre-hydration we read only baked demo data so the first client
+ * render matches the static HTML; after hydration the store overlays win.
+ */
+function gradedWeeks(hydrated: boolean): SeasonInput[] {
+  const contests = hydrated ? effectiveContests() : CONTESTS;
+  const out: SeasonInput[] = [];
+  for (const contest of contests) {
+    if (contest.status !== "graded") continue;
+    const results = hydrated
+      ? effectiveResults(contest.week)
+      : RESULTS.find((r) => r.week === contest.week);
+    if (!results) continue;
+    const subs = hydrated
+      ? effectiveSubmissions(contest.week)
+      : submissionsForWeek(contest.week);
+    out.push({ contest, results, subs });
+  }
+  return out.sort((a, b) => a.contest.week - b.contest.week);
+}
+
+interface LongshotTally {
+  attempts: number;
+  hits: number;
+}
+
+interface LongshotStats {
+  total: LongshotTally;
+  leader: { userId: string; tally: LongshotTally } | null;
+}
+
+/** Winner of a moneyline question, mirroring the grading engine's fallback. */
+function moneylineWinner(
+  w: SeasonInput,
+  qId: string,
+  options: { team: string; points: number }[],
+): string | null {
+  const v = w.results.values[qId];
+  if (typeof v === "string") return v;
+  const { lionsScore, oppScore } = w.results;
+  if (lionsScore == null || oppScore == null || lionsScore === oppScore) return null;
+  if (lionsScore > oppScore) return "DET";
+  return options.find((o) => o.team !== "DET")?.team ?? null;
+}
+
+/** Longshot tracking: moneyline options with an uneven divide; the fat side is the dare. */
+function computeLongshots(weeks: SeasonInput[], rows: StandingsRow[]): LongshotStats {
+  const playerIds = new Set(rows.map((r) => r.userId));
+  const total: LongshotTally = { attempts: 0, hits: 0 };
+  const byPlayer = new Map<string, LongshotTally>();
+  for (const w of weeks) {
+    for (const q of w.contest.questions) {
+      if (q.kind !== "moneyline" || q.options.length < 2) continue;
+      const sorted = [...q.options].sort((a, b) => b.points - a.points);
+      if (sorted[0].points === sorted[sorted.length - 1].points) continue; // even money
+      const longshot = sorted[0].team;
+      const winner = moneylineWinner(w, q.id, q.options);
+      for (const sub of w.subs) {
+        if (!playerIds.has(sub.userId) || sub.answers[q.id] !== longshot) continue;
+        const t = byPlayer.get(sub.userId) ?? { attempts: 0, hits: 0 };
+        t.attempts += 1;
+        total.attempts += 1;
+        if (winner === longshot) {
+          t.hits += 1;
+          total.hits += 1;
+        }
+        byPlayer.set(sub.userId, t);
+      }
+    }
+  }
+  let leader: LongshotStats["leader"] = null;
+  for (const [userId, tally] of byPlayer) {
+    if (!leader || tally.attempts > leader.tally.attempts) leader = { userId, tally };
+  }
+  return { total, leader };
+}
+
+// --- Small pieces -----------------------------------------------------------
+
+function Movement({ rank, prevRank }: { rank: number; prevRank?: number }) {
+  if (prevRank == null) return null;
+  if (prevRank === rank) {
+    return (
+      <span className="text-xs font-semibold text-fog" aria-label="No movement">
+        &middot;
+      </span>
+    );
+  }
+  const up = rank < prevRank;
+  const delta = Math.abs(prevRank - rank);
+  return (
+    <span
+      className={`text-xs font-semibold tabular-nums ${up ? "text-win" : "text-loss"}`}
+      aria-label={up ? `Up ${delta} from last week` : `Down ${delta} from last week`}
+    >
+      {up ? "▲" : "▼"}
+      {delta}
+    </span>
+  );
+}
+
+function AvatarDot({ color }: { color: string }) {
+  return (
+    <span
+      aria-hidden
+      className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
+      style={{ background: color }}
+    />
+  );
+}
+
+function BonusPills({ b }: { b: StandingsRow["bonuses"] }) {
+  const pills: ReactNode[] = [];
+  if (b.exacto > 0) {
+    pills.push(
+      <Pill key="e" tone="gold">
+        Exacto &times;{b.exacto}
+      </Pill>,
+    );
+  }
+  if (b.perfecto > 0) {
+    pills.push(
+      <Pill key="p" tone="gold">
+        Perfecto &times;{b.perfecto}
+      </Pill>,
+    );
+  }
+  if (b.closest > 0) {
+    pills.push(
+      <Pill key="c" tone="blue">
+        Closest-To &times;{b.closest}
+      </Pill>,
+    );
+  }
+  if (b.kod > 0) {
+    pills.push(
+      <Pill key="k" tone="loss">
+        Kiss of Death &times;{b.kod}
+      </Pill>,
+    );
+  }
+  if (pills.length === 0) return <span className="text-xs text-fog">&middot;</span>;
+  return <div className="flex flex-wrap items-center gap-1">{pills}</div>;
+}
+
+function lineItemLabelClass(item: LineItem): string {
+  if (item.kind === "bonus") return "text-gold";
+  if (item.kind === "penalty") return "text-loss";
+  return item.points > 0 ? "text-silver" : "text-fog";
+}
+
+function WeekDetail({ week, grade }: { week: number; grade: UserWeekGrade | undefined }) {
+  const total = grade?.total ?? 0;
+  return (
+    <div className="rounded-lg border border-edge bg-panel p-3">
+      <div className="mb-2 flex items-baseline justify-between gap-3 border-b border-edge pb-2">
+        <span className="text-xs font-semibold uppercase tracking-wider text-fog">
+          Week {week}
+        </span>
+        <span
+          className={`display text-lg ${
+            total < 0 ? "text-loss" : total > 0 ? "text-chalk" : "text-fog"
+          }`}
+        >
+          {signedPts(total)}
+        </span>
+      </div>
+      {grade && grade.items.length > 0 ? (
+        <ul className="space-y-1.5">
+          {grade.items.map((item, i) => (
+            <li key={i} className="flex items-start justify-between gap-3 text-xs">
+              <span className={lineItemLabelClass(item)}>{item.label}</span>
+              <span
+                className={`shrink-0 font-semibold tabular-nums ${lineItemLabelClass(item)}`}
+              >
+                {signedPts(item.points)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-xs text-fog">
+          {"No pick submitted. Zero points. Mother Superior noticed."}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// --- Tabs -------------------------------------------------------------------
+
+type TabId = "table" | "kod" | "exacto" | "perfecto";
+
+const TABS: { id: TabId; label: string }[] = [
+  { id: "table", label: "The Table" },
+  { id: "kod", label: "Kiss of Death" },
+  { id: "exacto", label: "Exacto" },
+  { id: "perfecto", label: "Perfecto" },
+];
+
+/** One cashed (or suffered) score bonus, resolved for public rendering. */
+interface BonusHit {
+  userId: string;
+  name: string;
+  color: string;
+  week: number;
+  label: string;
+  points: number;
+}
+
+function BonusList({
+  hits,
+  tone,
+  emptyTitle,
+  emptyBody,
+}: {
+  hits: BonusHit[];
+  tone: "gold" | "loss";
+  emptyTitle: string;
+  emptyBody: string;
+}) {
+  if (hits.length === 0) {
+    return <EmptyState title={emptyTitle}>{emptyBody}</EmptyState>;
+  }
+  return (
+    <Card className="overflow-hidden">
+      <ul className="divide-y divide-edge">
+        {hits.map((h, i) => (
+          <li
+            key={`${h.week}-${h.userId}-${i}`}
+            className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3"
+          >
+            <span className="flex items-center gap-2.5">
+              <AvatarDot color={h.color} />
+              <span className="text-sm font-semibold text-silver">{h.name}</span>
+              <span className="text-xs uppercase tracking-wider text-fog">Week {h.week}</span>
+            </span>
+            <span className="flex items-center gap-3">
+              <span className="text-xs text-fog">{h.label}</span>
+              <span
+                className={`display text-lg leading-none tabular-nums ${
+                  tone === "gold" ? "text-gold" : "text-loss"
+                }`}
+              >
+                {signedPts(h.points)}
+              </span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
+// --- Page -------------------------------------------------------------------
+
+export default function NumsPage() {
+  const hydrated = useHydrated();
+  const version = useStoreVersion();
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [tab, setTab] = useState<TabId>("table");
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  const { weeks, rows, grades, graphPlayers, progression, longshots, bonusHits, shame } =
+    useMemo(() => {
+      const weeks = gradedWeeks(hydrated);
+      const playerIds = PLAYERS.map((p) => p.id);
+      const rows = computeStandings(playerIds, weeks);
+
+      const nameOf = (p: Participant) => (hydrated ? publicName(p) : p.nickname);
+
+      const grades = new Map<number, Map<string, UserWeekGrade>>();
+      for (const w of weeks) {
+        const m = new Map<string, UserWeekGrade>();
+        for (const g of gradeWeek(w.contest, w.results, w.subs)) m.set(g.userId, g);
+        grades.set(w.contest.week, m);
+      }
+
+      // Graph identity = entity colors, all players, nicknames only.
+      const graphPlayers: GraphPlayer[] = PLAYERS.map((p) => ({
+        id: p.id,
+        label: nameOf(p),
+        color: p.avatarColor,
+      }));
+      const progression = rankProgression(playerIds, weeks);
+
+      // Bonus ledgers: every score-bonus line item, by type, week then player.
+      const bonusHits: Record<Exclude<ScoreBonusType, "closest">, BonusHit[]> = {
+        kod: [],
+        exacto: [],
+        perfecto: [],
+      };
+      for (const w of weeks) {
+        for (const g of grades.get(w.contest.week)?.values() ?? []) {
+          const p = participant(g.userId);
+          if (!p) continue;
+          for (const item of g.items) {
+            if (
+              item.bonusType !== "kod" &&
+              item.bonusType !== "exacto" &&
+              item.bonusType !== "perfecto"
+            )
+              continue;
+            bonusHits[item.bonusType].push({
+              userId: g.userId,
+              name: nameOf(p),
+              color: p.avatarColor,
+              week: w.contest.week,
+              label: item.label,
+              points: item.points,
+            });
+          }
+        }
+      }
+      for (const list of Object.values(bonusHits)) {
+        list.sort((a, b) => a.week - b.week || a.name.localeCompare(b.name));
+      }
+
+      // Shame: every player with no submission for a completed (graded) week.
+      const shame: { userId: string; name: string; color: string; week: number }[] = [];
+      for (const w of weeks) {
+        for (const p of PLAYERS) {
+          if (w.subs.some((s) => s.userId === p.id)) continue;
+          shame.push({ userId: p.id, name: nameOf(p), color: p.avatarColor, week: w.contest.week });
+        }
+      }
+      shame.sort((a, b) => a.week - b.week || a.name.localeCompare(b.name));
+
+      return {
+        weeks,
+        rows,
+        grades,
+        graphPlayers,
+        progression,
+        longshots: computeLongshots(weeks, rows),
+        bonusHits,
+        shame,
+      };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [hydrated, version]);
+
+  const weekNums = weeks.map((w) => w.contest.week);
+  const leaderTotal = rows[0]?.total ?? 0;
+  const rankCounts = new Map<number, number>();
+  for (const r of rows) rankCounts.set(r.rank, (rankCounts.get(r.rank) ?? 0) + 1);
+  const rankLabel = (rank: number) => ((rankCounts.get(rank) ?? 0) > 1 ? `T${rank}` : `${rank}`);
+
+  const toggle = (id: string) => setOpenId((cur) => (cur === id ? null : id));
+
+  const displayName = (p: Participant) => (hydrated ? publicName(p) : p.nickname);
+  const longshotLeader = longshots.leader ? participant(longshots.leader.userId) : null;
+
+  const onTablistKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const idx = TABS.findIndex((t) => t.id === tab);
+    let next = -1;
+    if (e.key === "ArrowRight") next = (idx + 1) % TABS.length;
+    else if (e.key === "ArrowLeft") next = (idx - 1 + TABS.length) % TABS.length;
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = TABS.length - 1;
+    if (next < 0) return;
+    e.preventDefault();
+    setTab(TABS[next].id);
+    tabRefs.current[next]?.focus();
+  };
+
+  return (
+    <div className="space-y-10">
+      <div>
+        <SectionTitle kicker="Season to date">Nums</SectionTitle>
+        <div
+          role="tablist"
+          aria-label="Nums views"
+          onKeyDown={onTablistKeyDown}
+          className="mt-4 flex flex-wrap items-center gap-1"
+        >
+          {TABS.map((t, i) => {
+            const active = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                ref={(el) => {
+                  tabRefs.current[i] = el;
+                }}
+                type="button"
+                role="tab"
+                id={`nums-tab-${t.id}`}
+                aria-selected={active}
+                aria-controls={`nums-panel-${t.id}`}
+                tabIndex={active ? 0 : -1}
+                onClick={() => setTab(t.id)}
+                className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-sky ${
+                  active ? "bg-honolulu/15 text-sky" : "text-fog hover:bg-panel-2 hover:text-chalk"
+                }`}
+              >
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {tab === "table" && (
+        <div
+          role="tabpanel"
+          id="nums-panel-table"
+          aria-labelledby="nums-tab-table"
+          className="space-y-10"
+        >
+          {weeks.length === 0 ? (
+            <EmptyState title="Nothing graded yet">
+              {
+                "Mother Superior grades when Mother Superior grades. Check back after the first final whistle."
+              }
+            </EmptyState>
+          ) : (
+            <>
+              {/* Podium */}
+              <div className="grid gap-4 sm:grid-cols-3">
+                {rows.slice(0, 3).map((row) => {
+                  const p = participant(row.userId);
+                  if (!p) return null;
+                  const back = leaderTotal - row.total;
+                  const medal =
+                    row.rank === 1 ? "text-gold" : row.rank === 2 ? "text-silver" : "text-fog";
+                  return (
+                    <Card key={row.userId} accent className="p-5">
+                      <div className="flex items-start justify-between">
+                        <span className={`display text-5xl leading-none ${medal}`}>
+                          {rankLabel(row.rank)}
+                        </span>
+                        <AvatarDot color={p.avatarColor} />
+                      </div>
+                      <div className="mt-3 font-bold text-chalk">{displayName(p)}</div>
+                      <div className="mt-3 flex items-baseline gap-2">
+                        <span
+                          className={`display text-3xl ${row.total < 0 ? "text-loss" : "text-chalk"}`}
+                        >
+                          {row.total < 0 ? signedPts(row.total) : fmtPts(row.total)}
+                        </span>
+                        <span className="text-xs uppercase tracking-wider text-fog">pts</span>
+                      </div>
+                      <div className="mt-1 text-xs text-fog">
+                        {row.rank === 1
+                          ? "The hunted. Enjoy it while it lasts."
+                          : back === 0
+                            ? "Even on top."
+                            : `${fmtPts(back)} back`}
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+
+              {/* Season movement graph */}
+              <Card className="p-5">
+                <h3 className="display text-xl text-chalk">Season movement</h3>
+                <p className="mt-1 text-xs text-fog">
+                  {"Rank after each graded week. Hover a dot for the receipts."}
+                </p>
+                <div className="mt-4">
+                  <SeasonGraph players={graphPlayers} progression={progression} />
+                </div>
+              </Card>
+
+              {/* Full table */}
+              <div>
+                <p className="mb-3 text-xs text-fog">
+                  {
+                    "Click any row for the receipts: every line item, every bonus, every mistake. Through "
+                  }
+                  {weeks.length} graded {weeks.length === 1 ? "week" : "weeks"}.
+                </p>
+                <Card className="overflow-hidden">
+                  <div className="table-scroll">
+                    <table className="w-full min-w-[760px] text-sm">
+                      <thead>
+                        <tr className="border-b border-edge text-left text-xs uppercase tracking-wider text-fog">
+                          <th scope="col" className="px-4 py-3 font-semibold">
+                            Rank
+                          </th>
+                          <th scope="col" className="px-4 py-3 font-semibold">
+                            Player
+                          </th>
+                          {weekNums.map((w) => (
+                            <th key={w} scope="col" className="px-3 py-3 text-right font-semibold">
+                              W{w}
+                            </th>
+                          ))}
+                          <th scope="col" className="px-4 py-3 text-right font-semibold">
+                            Total
+                          </th>
+                          <th scope="col" className="px-4 py-3 font-semibold">
+                            Bonuses
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.map((row) => {
+                          const p = participant(row.userId);
+                          if (!p) return null;
+                          const open = openId === row.userId;
+                          return (
+                            <Fragment key={row.userId}>
+                              <tr
+                                onClick={() => toggle(row.userId)}
+                                className={`cursor-pointer border-b border-edge transition last:border-b-0 hover:bg-panel-2 ${
+                                  open ? "bg-panel-2" : ""
+                                }`}
+                              >
+                                <td className="px-4 py-3">
+                                  <div className="flex items-center gap-2">
+                                    <span className="display w-8 text-xl leading-none text-chalk">
+                                      {rankLabel(row.rank)}
+                                    </span>
+                                    <Movement rank={row.rank} prevRank={row.prevRank} />
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <button
+                                    type="button"
+                                    aria-expanded={open}
+                                    aria-controls={
+                                      open ? `nums-detail-${row.userId}` : undefined
+                                    }
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggle(row.userId);
+                                    }}
+                                    className="flex cursor-pointer items-center gap-2.5 rounded focus-visible:outline-2 focus-visible:outline-sky"
+                                  >
+                                    <AvatarDot color={p.avatarColor} />
+                                    <span className="font-semibold text-silver">
+                                      {displayName(p)}
+                                    </span>
+                                    <span
+                                      aria-hidden
+                                      className={`inline-block text-xs text-fog transition-transform ${
+                                        open ? "rotate-90" : ""
+                                      }`}
+                                    >
+                                      {"▸"}
+                                    </span>
+                                  </button>
+                                </td>
+                                {weekNums.map((w) => {
+                                  const v = row.weekly[w];
+                                  return (
+                                    <td
+                                      key={w}
+                                      className={`px-3 py-3 text-right tabular-nums ${
+                                        v == null
+                                          ? "text-fog"
+                                          : v < 0
+                                            ? "font-semibold text-loss"
+                                            : "text-silver"
+                                      }`}
+                                    >
+                                      {v == null ? "·" : v < 0 ? signedPts(v) : fmtPts(v)}
+                                    </td>
+                                  );
+                                })}
+                                <td className="px-4 py-3 text-right">
+                                  <span
+                                    className={`display text-2xl leading-none ${
+                                      row.total < 0 ? "text-loss" : "text-chalk"
+                                    }`}
+                                  >
+                                    {row.total < 0 ? signedPts(row.total) : fmtPts(row.total)}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <BonusPills b={row.bonuses} />
+                                </td>
+                              </tr>
+                              {open && (
+                                <tr
+                                  id={`nums-detail-${row.userId}`}
+                                  className="border-b border-edge bg-pitch/40 last:border-b-0"
+                                >
+                                  <td colSpan={weekNums.length + 4} className="px-4 py-4">
+                                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                      {weeks.map((w) => (
+                                        <WeekDetail
+                                          key={w.contest.week}
+                                          week={w.contest.week}
+                                          grade={grades.get(w.contest.week)?.get(row.userId)}
+                                        />
+                                      ))}
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              </div>
+
+              {/* Shame */}
+              <div>
+                <SectionTitle kicker="The permanent record" className="mb-4">
+                  Shame
+                </SectionTitle>
+                {shame.length > 0 ? (
+                  <Card className="overflow-hidden">
+                    <ul className="divide-y divide-edge">
+                      {shame.map((s) => (
+                        <li
+                          key={`${s.week}-${s.userId}`}
+                          className="flex items-center gap-2.5 px-4 py-3 text-sm"
+                        >
+                          <AvatarDot color={s.color} />
+                          <span className="font-semibold text-silver">{s.name}</span>
+                          <span className="text-fog">
+                            Week {s.week}. No pick. Zero points.
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </Card>
+                ) : (
+                  <EmptyState title="Full attendance">
+                    {"Everyone has picked every week. Mother Superior is quietly suspicious."}
+                  </EmptyState>
+                )}
+              </div>
+
+              {/* The Machine Line */}
+              {longshots.total.attempts > 0 && longshots.leader && longshotLeader && (
+                <Card className="p-5">
+                  <h3 className="display text-xl text-sky">The Machine Line</h3>
+                  <div className="mt-3 flex items-baseline gap-2">
+                    <span className="display text-4xl leading-none text-chalk">
+                      {longshots.total.hits} for {longshots.total.attempts}
+                    </span>
+                    <span className="text-xs uppercase tracking-wider text-fog">
+                      on longshots, pool-wide
+                    </span>
+                  </div>
+                  <p className="mt-3 flex items-center gap-2.5 text-sm">
+                    <AvatarDot color={longshotLeader.avatarColor} />
+                    <span>
+                      <span className="font-semibold text-silver">
+                        {displayName(longshotLeader)}
+                      </span>
+                      <span className="text-fog">
+                        {" "}
+                        owns {longshots.leader.tally.attempts} of the {longshots.total.attempts}{" "}
+                        attempts ({longshots.leader.tally.hits}{" "}
+                        {longshots.leader.tally.hits === 1 ? "hit" : "hits"}).
+                      </span>
+                    </span>
+                  </p>
+                  <p className="mt-3 text-xs text-fog">
+                    {
+                      "The points divide is an incentive, not a dare. It keeps getting treated as a dare."
+                    }
+                  </p>
+                </Card>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {tab === "kod" && (
+        <div role="tabpanel" id="nums-panel-kod" aria-labelledby="nums-tab-kod">
+          <BonusList
+            hits={bonusHits.kod}
+            tone="loss"
+            emptyTitle="No kisses yet"
+            emptyBody="Nobody has taken the Kiss yet. The season is young."
+          />
+        </div>
+      )}
+
+      {tab === "exacto" && (
+        <div role="tabpanel" id="nums-panel-exacto" aria-labelledby="nums-tab-exacto">
+          <BonusList
+            hits={bonusHits.exacto}
+            tone="gold"
+            emptyTitle="No Exactos yet"
+            emptyBody="Nobody has landed a score on the nose. Mother Superior keeps the eight points warm."
+          />
+        </div>
+      )}
+
+      {tab === "perfecto" && (
+        <div role="tabpanel" id="nums-panel-perfecto" aria-labelledby="nums-tab-perfecto">
+          <BonusList
+            hits={bonusHits.perfecto}
+            tone="gold"
+            emptyTitle="No Perfectos yet"
+            emptyBody="Twenty points, unclaimed. Perfection remains theoretical."
+          />
+        </div>
+      )}
+
+      {/* CTA */}
+      <Card className="flex flex-col items-start justify-between gap-3 p-5 sm:flex-row sm:items-center">
+        <p className="text-sm text-silver">
+          <span className="font-bold text-chalk">Week {CURRENT_WEEK} is open.</span>{" "}
+          {"Team. Win. Score. Don't be an idiot."}
+        </p>
+        <Link
+          href="/"
+          className="rounded-lg bg-honolulu px-4 py-2 text-sm font-bold text-white transition hover:bg-honolulu-deep"
+        >
+          Make your pick
+        </Link>
+      </Card>
+    </div>
+  );
+}

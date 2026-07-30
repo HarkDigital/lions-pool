@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogoLockup } from "./LogoMark";
-import { useUser, signOut } from "@/lib/store";
+import { publicName, signOut, useUser } from "@/lib/store";
 
 const LINKS = [
   { href: "/", label: "This Week" },
   { href: "/schedule/", label: "Schedule" },
-  { href: "/standings/", label: "Standings" },
+  { href: "/nums/", label: "Nums" },
   { href: "/my-picks/", label: "My Picks" },
   { href: "/rules/", label: "Rules" },
 ];
@@ -60,13 +60,13 @@ export function Nav() {
             <>
               <span
                 className="hidden items-center gap-2 rounded-full border border-edge bg-panel px-3 py-1.5 text-xs font-bold text-silver sm:inline-flex"
-                title={user.name}
+                title={publicName(user)}
               >
                 <span
                   className="inline-block h-2.5 w-2.5 rounded-full"
                   style={{ background: user.avatarColor }}
                 />
-                {user.name}
+                {publicName(user)}
               </span>
               <button
                 onClick={signOut}

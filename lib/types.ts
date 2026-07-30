@@ -143,8 +143,13 @@ export interface Contest {
 
 // --- Picks ----------------------------------------------------------------
 
+/** Sentinel winner for a predicted tie (equal scores). Ties are real in the
+ * NFL regular season; a tie pick collects no winner points but stays fully
+ * eligible for score bonuses. */
+export const TIE = "TIE";
+
 export interface ScorePick {
-  winner: TeamAbbr;
+  winner: TeamAbbr; // team abbr, or TIE when lions === opp
   lions: number; // predicted Lions points
   opp: number; // predicted opponent points
 }
@@ -198,11 +203,26 @@ export interface UserWeekGrade {
 
 export interface Participant {
   id: string;
+  /** Real name. ADMIN-ONLY: never render on a public page. */
   name: string;
-  nickname?: string;
-  /** Hex accent used for the avatar chip. */
+  /** ADMIN-ONLY, same rule as `name`. */
+  email?: string;
+  /**
+   * The only name the pool sees, on every public surface. Set by
+   * Mother Superior alone; players cannot change it.
+   */
+  nickname: string;
+  /** Hex accent used for the avatar chip and the season graph series. */
   avatarColor: string;
   isAdmin?: boolean;
+}
+
+/** Season buy-in bookkeeping, tracked by the Commissioner. */
+export interface PaymentRecord {
+  userId: string;
+  paid: boolean;
+  markedAtUTC?: string;
+  note?: string;
 }
 
 export interface StandingsRow {

@@ -11,7 +11,7 @@ import { AdminGate } from "@/components/AdminGate";
 import { TeamLogo } from "@/components/TeamLogo";
 import { Card, EmptyState, Pill, STATUS_DOT, STATUS_TONE, SectionTitle } from "@/components/ui";
 import { CURRENT_WEEK, participant } from "@/lib/demo-data";
-import { fmtDateTime, fmtPts, signedPts } from "@/lib/format";
+import { fmtDateTime, fmtPts, fmtScore, signedPts } from "@/lib/format";
 import { ALL_WEEKS } from "@/lib/schedule";
 import { gradeWeek } from "@/lib/scoring";
 import { teamInfo } from "@/lib/teams";
@@ -19,6 +19,7 @@ import {
   effectiveContests,
   effectiveResults,
   effectiveSubmissions,
+  publicName,
   useStoreVersion,
 } from "@/lib/store";
 import type { Contest, ContestStatus, ScorePick, Submission } from "@/lib/types";
@@ -56,11 +57,11 @@ function answerLines(contest: Contest, sub: Submission): string[] {
       case "overUnder": {
         if (typeof a !== "string") return "No answer";
         if (a === "over")
-          return `Over ${fmtPts(q.line)} — ${q.label} (pays ${fmtPts(q.overPoints)})`;
+          return `Over ${fmtPts(q.line)} on ${q.label} (pays ${fmtPts(q.overPoints)})`;
         if (a === "under")
-          return `Under ${fmtPts(q.line)} — ${q.label} (pays ${fmtPts(q.underPoints)})`;
+          return `Under ${fmtPts(q.line)} on ${q.label} (pays ${fmtPts(q.underPoints)})`;
         if (a === "exact")
-          return `Straight Money on ${fmtPts(q.line)} — ${q.label}${
+          return `Straight Money on ${fmtPts(q.line)}, ${q.label}${
             q.exactPoints != null ? ` (pays ${fmtPts(q.exactPoints)})` : ""
           }`;
         return a;
@@ -85,9 +86,11 @@ function answerLines(contest: Contest, sub: Submission): string[] {
   });
 }
 
-/** "DET 31–20" — winner's abbr first, winner's score first. */
+/** "DET 31-20": winner's abbr first, winner's score first. */
 function scorePickText(p: ScorePick): string {
-  return p.winner === "DET" ? `DET ${p.lions}–${p.opp}` : `${p.winner} ${p.opp}–${p.lions}`;
+  return p.winner === "DET"
+    ? `DET ${fmtScore(p.lions, p.opp)}`
+    : `${p.winner} ${fmtScore(p.opp, p.lions)}`;
 }
 
 // --- Status presentation ----------------------------------------------------
@@ -129,7 +132,7 @@ function SubmissionsInner() {
 
   return (
     <div className="space-y-6">
-      <SectionTitle kicker="Mother's Office">The Inbox</SectionTitle>
+      <SectionTitle kicker="Mother Superior's Office">The Inbox</SectionTitle>
 
       <div className="space-y-3">
         <div className="flex flex-wrap gap-1.5">
@@ -193,7 +196,7 @@ function SubmissionsInner() {
             <EmptyState title="Inbox empty. Suspicious.">
               {contest.status === "draft"
                 ? "The slate isn't even posted yet. Nobody can be early to a party that doesn't exist."
-                : "Not a single pick in for this week. Mother notices these things."}
+                : "Not a single pick in for this week. Mother Superior notices these things."}
             </EmptyState>
           ) : (
             <Card className="overflow-hidden">
@@ -218,14 +221,19 @@ function SubmissionsInner() {
                         <Fragment key={s.userId}>
                           <tr className="border-b border-edge last:border-0">
                             <td className="px-4 py-3 align-top">
-                              <span className="flex items-center gap-2 whitespace-nowrap font-semibold text-silver">
+                              <span className="flex items-start gap-2 whitespace-nowrap">
                                 {p && (
                                   <span
-                                    className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
+                                    className="mt-1 inline-block h-2.5 w-2.5 shrink-0 rounded-full"
                                     style={{ background: p.avatarColor }}
                                   />
                                 )}
-                                {p?.name ?? s.userId}
+                                <span>
+                                  <span className="block font-bold text-chalk">
+                                    {p ? publicName(p) : s.userId}
+                                  </span>
+                                  {p && <span className="block text-xs text-fog">{p.name}</span>}
+                                </span>
                               </span>
                             </td>
                             <td className="whitespace-nowrap px-4 py-3 align-top text-xs text-fog">
@@ -245,7 +253,7 @@ function SubmissionsInner() {
                                   {scorePickText(s.scorePick)}
                                 </span>
                               ) : (
-                                <span className="text-xs text-fog">—</span>
+                                <span className="text-xs text-fog">-</span>
                               )}
                             </td>
                             {isGraded && (
@@ -259,7 +267,7 @@ function SubmissionsInner() {
                                         : "text-fog"
                                   }`}
                                 >
-                                  {g ? signedPts(g.total) : "—"}
+                                  {g ? signedPts(g.total) : "-"}
                                 </span>
                               </td>
                             )}
@@ -328,7 +336,7 @@ function SubmissionsInner() {
         </>
       ) : (
         <EmptyState title="No slate for this week">
-          Mother has not built this one yet. Patience.
+          Mother Superior has not built this one yet. Patience.
         </EmptyState>
       )}
 
@@ -336,7 +344,7 @@ function SubmissionsInner() {
         <span className="font-bold uppercase tracking-wider text-sky">How this works live: </span>
         in the real thing, picks arrive through the site and lock automatically at kickoff. No
         email chains, no texts at 12:58, no deciphering anyone&apos;s handwriting. The machine
-        stamps the time and slams the door. Mother just reads. Team. Win. Score.
+        stamps the time and slams the door. Mother Superior just reads. Team. Win. Score.
       </Card>
     </div>
   );

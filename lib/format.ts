@@ -35,6 +35,11 @@ export function signedPts(n: number): string {
   return n >= 0 ? `+${fmtPts(n)}` : `−${fmtPts(Math.abs(n))}`;
 }
 
+/** Score displays use a plain hyphen, pool-style: "34-17". */
+export function fmtScore(a: number, b: number): string {
+  return `${a}-${b}`;
+}
+
 export function ordinal(n: number): string {
   const s = ["th", "st", "nd", "rd"];
   const v = n % 100;

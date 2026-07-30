@@ -1,8 +1,8 @@
 "use client";
 
 // ---------------------------------------------------------------------------
-// Admin: the weekly contest builder. Mother builds the slate here every
-// week — questions, the points divide, the lock time — then flips it open.
+// Admin: the weekly contest builder. Mother Superior builds the slate here
+// every week (questions, the points divide, the lock time), then flips it open.
 // Saves overlay localStorage via lib/store; players see it instantly.
 // ---------------------------------------------------------------------------
 
@@ -164,7 +164,7 @@ function TeamSelect({ value, onChange }: { value: string; onChange: (v: string) 
     <select className={INPUT} value={value} onChange={(e) => onChange(e.target.value)}>
       {Object.keys(TEAMS).map((abbr) => (
         <option key={abbr} value={abbr}>
-          {abbr} — {TEAMS[abbr].short}
+          {abbr} · {TEAMS[abbr].short}
         </option>
       ))}
     </select>
@@ -293,7 +293,7 @@ function OverUnderEditor({ q, onChange }: { q: OverUnderQ; onChange: (q: OverUnd
         >
           <option value="total">Combined final score (auto-graded)</option>
           <option value="lionsMargin">Lions margin (auto-graded)</option>
-          <option value="stat">Stat — entered at grading time</option>
+          <option value="stat">Stat: entered at grading time</option>
         </select>
       </Field>
       <Field label="Over pays">
@@ -305,7 +305,7 @@ function OverUnderEditor({ q, onChange }: { q: OverUnderQ; onChange: (q: OverUnd
           onChange={(underPoints) => onChange({ ...q, underPoints })}
         />
       </Field>
-      <Field label="Straight Money pays (optional — exactly on the number)" className="sm:col-span-2">
+      <Field label="Straight Money pays (optional, exactly on the number)" className="sm:col-span-2">
         <OptNumInput
           value={q.exactPoints}
           onChange={(exactPoints) => onChange({ ...q, exactPoints })}
@@ -459,7 +459,7 @@ function QuestionCard({
           Remove
         </Btn>
       </div>
-      <Field label="Heading (optional — shown above the question)" className="mb-3">
+      <Field label="Heading (optional, shown above the question)" className="mb-3">
         <input
           className={INPUT}
           value={q.title ?? ""}
@@ -507,7 +507,7 @@ function QuestionPreview({ q }: { q: Question }) {
       {q.kind === "overUnder" && (
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-silver">
           <span className="text-fog">
-            {q.label} — the number is {fmtPts(q.line)}:
+            {q.label}, the number is {fmtPts(q.line)}:
           </span>
           <span className="flex items-center gap-2">
             Over <PointsChip points={q.overPoints} />
@@ -558,7 +558,7 @@ function SlatePreview({ contest }: { contest: Contest }) {
   return (
     <Card accent className="p-5 sm:p-6">
       <div className="mb-1 text-xs font-semibold uppercase tracking-[0.2em] text-sky">
-        Preview — what the players see
+        Preview: what the players see
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <h3 className="display text-2xl">{contest.title}</h3>
@@ -577,7 +577,7 @@ function SlatePreview({ contest }: { contest: Contest }) {
       {contest.blurb && <p className="mt-3 text-sm text-silver">{contest.blurb}</p>}
       {contest.motherSays && (
         <div className="mt-3">
-          <Pill tone="gold">Mother Says: {contest.motherSays}</Pill>
+          <Pill tone="gold">Mother Superior Says: {contest.motherSays}</Pill>
         </div>
       )}
       <div className="mt-4 space-y-3">
@@ -593,7 +593,7 @@ function SlatePreview({ contest }: { contest: Contest }) {
       )}
       {contest.scoreBonuses && (
         <p className="mt-3 text-xs text-fog">
-          Team. Win. Score. — Closest-To, Exacto, Perfecto, and the Kiss of Death are in play.
+          Team. Win. Score. Closest-To, Exacto, Perfecto, and the Kiss of Death are in play.
         </p>
       )}
     </Card>
@@ -668,7 +668,7 @@ function WeekEditor({
             onChange={(e) => set({ title: e.target.value })}
           />
         </Field>
-        <Field label="Blurb — the announcement email" className="sm:col-span-2">
+        <Field label="Blurb: the announcement email" className="sm:col-span-2">
           <textarea
             className={`${INPUT} min-h-24`}
             value={draft.blurb ?? ""}
@@ -676,7 +676,7 @@ function WeekEditor({
             onChange={(e) => set({ blurb: e.target.value || undefined })}
           />
         </Field>
-        <Field label="Mother Says (her own pick)">
+        <Field label="Mother Superior Says (her own pick)">
           <input
             className={INPUT}
             value={draft.motherSays ?? ""}
@@ -697,7 +697,7 @@ function WeekEditor({
             ))}
           </select>
         </Field>
-        <Field label="Picks lock at (your clock — stored as UTC)">
+        <Field label="Picks lock at (your clock, stored as UTC)">
           <input
             type="datetime-local"
             className={INPUT}
@@ -721,7 +721,7 @@ function WeekEditor({
       </div>
       {game && (
         <p className="mt-2 text-xs text-fog">
-          The Lions play this week, so score bonuses default on — Closest-To, Exacto, Perfecto, and
+          The Lions play this week, so score bonuses default on: Closest-To, Exacto, Perfecto, and
           the Kiss of Death all apply to the winner + score every player submits.
         </p>
       )}
@@ -773,7 +773,7 @@ function WeekEditor({
             checked={!!draft.comboBonus}
             onChange={(e) => toggleCombo(e.target.checked)}
           />
-          Combo bonus — sweep a set of questions, get extra
+          Combo bonus: sweep a set of questions, get extra
         </label>
         {draft.comboBonus && (
           <div className="mt-3 space-y-3">
@@ -858,10 +858,6 @@ function ContestBuilder() {
   return (
     <div className="space-y-6">
       <SectionTitle kicker="Admin · Weekly duty">Contest Builder</SectionTitle>
-      <p className="max-w-2xl text-sm text-fog">
-        Every week Mother builds the slate: pick the questions, set the divide, post it. Team. Win.
-        Score. Don’t be an idiot.
-      </p>
 
       <div className="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
         {/* Week rail (top strip on mobile) */}

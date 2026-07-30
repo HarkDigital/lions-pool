@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 // Admin: the auto-grading console. Enter what actually happened, preview the
 // engine's grades for every player (lib/scoring runs right here in the
-// browser), then save — standings and My Picks pick it up instantly.
+// browser), then save — the Nums and My Picks pick it up instantly.
 // ---------------------------------------------------------------------------
 
 import { useEffect, useState } from "react";
@@ -15,6 +15,7 @@ import {
   effectiveContests,
   effectiveResults,
   effectiveSubmissions,
+  publicName,
   saveContest,
   saveResults,
   useHydrated,
@@ -51,7 +52,7 @@ function qLabel(q: Question): string {
     case "spread":
       return `${teamInfo(q.favorite).short} −${fmtPts(q.line)} spread`;
     case "overUnder":
-      return `O/U ${fmtPts(q.line)} — ${q.label}`;
+      return `O/U ${fmtPts(q.line)}: ${q.label}`;
     case "prop":
       return q.question;
     case "pickem":
@@ -61,8 +62,8 @@ function qLabel(q: Question): string {
 
 // ---------------------------------------------------------------------------
 // Per-question gradability. ONE predicate decides whether the engine can
-// grade a question from the entered final score or whether Mother has to
-// type a per-question actual — and every gate on this page (the missing
+// grade a question from the entered final score or whether Mother Superior
+// has to type a per-question actual — and every gate on this page (the missing
 // list, which inputs render, the auto-graded caption, the preview/save
 // buttons) reads that same predicate, so the console asks for exactly what
 // lib/scoring will read.
@@ -80,7 +81,7 @@ function gradedFromFinalScore(q: Question, contest: Contest): boolean {
       return true;
     case "overUnder":
       // "total" and "lionsMargin" derive from the final score; "stat" is
-      // a number Mother types in.
+      // a number Mother Superior types in.
       return q.source !== "stat";
     default:
       // Props and pick'ems are always typed in.
@@ -138,7 +139,7 @@ function GradeTable({ grades }: { grades: UserWeekGrade[] }) {
             const p = participant(g.userId);
             return (
               <tr key={g.userId} className="border-t border-edge align-top">
-                <td className="whitespace-nowrap py-3 pr-4 font-bold text-silver">
+                <td className="whitespace-nowrap py-3 pr-4">
                   <span className="flex items-center gap-2">
                     {p && (
                       <span
@@ -146,7 +147,12 @@ function GradeTable({ grades }: { grades: UserWeekGrade[] }) {
                         style={{ background: p.avatarColor }}
                       />
                     )}
-                    {p?.name ?? g.userId}
+                    <span>
+                      <span className="block font-bold text-silver">
+                        {p ? publicName(p) : g.userId}
+                      </span>
+                      {p && <span className="block text-xs text-fog">{p.name}</span>}
+                    </span>
                   </span>
                 </td>
                 <td className="py-3 pr-4">
@@ -277,10 +283,6 @@ function GradingConsole() {
   return (
     <div className="space-y-6">
       <SectionTitle kicker="Admin · After the whistle">Grading Console</SectionTitle>
-      <p className="max-w-2xl text-sm text-fog">
-        Type in what happened. The engine grades every pick, every divide, every bonus — including
-        the Kiss of Death. Mother does no arithmetic and makes no mistakes.
-      </p>
 
       {/* Week selector: only weeks with a real slate */}
       <div className="flex flex-wrap gap-2">
@@ -322,7 +324,7 @@ function GradingConsole() {
                 </div>
               </div>
               {isGraded(contest.week, contest.status) && (
-                <Pill tone={STATUS_TONE.graded}>graded — re-save to adjust</Pill>
+                <Pill tone={STATUS_TONE.graded}>graded, re-save to adjust</Pill>
               )}
             </div>
 
@@ -419,7 +421,7 @@ function GradingConsole() {
                   {q.kind === "moneyline" && (
                     <>
                       <div className="mb-2 text-sm font-semibold text-silver">
-                        Who won{q.title ? ` — ${q.title}` : ""}?
+                        Who won{q.title ? ` (${q.title})` : ""}?
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {q.options.map((o) => (
@@ -504,10 +506,10 @@ function GradingConsole() {
               </Btn>
               {savedNote && (
                 <span className="text-sm font-semibold text-win">
-                  Week {contest.week} is in the books — standings and My Picks updated instantly.
+                  Week {contest.week} is in the books. The Nums and My Picks updated instantly.
                   Saved to this browser (demo).{" "}
-                  <Link href="/standings/" className="text-sky underline">
-                    See the standings
+                  <Link href="/nums/" className="text-sky underline">
+                    See the Nums
                   </Link>
                 </span>
               )}
@@ -516,14 +518,14 @@ function GradingConsole() {
 
           {subs.length === 0 ? (
             <EmptyState title="No picks to grade">
-              Nobody has submitted for Week {contest.week}. You cannot grade silence. Team. Win.
-              Score. — remind them.
+              Nobody has submitted for Week {contest.week}. Mother Superior cannot grade silence.
+              Team. Win. Score. Remind them.
             </EmptyState>
           ) : (
             preview && (
               <Card accent className="p-5 sm:p-6">
                 <div className="mb-1 text-xs font-semibold uppercase tracking-[0.2em] text-sky">
-                  Preview — nothing saved yet
+                  Preview: nothing saved yet
                 </div>
                 <h3 className="display text-2xl">Week {contest.week}, graded</h3>
                 <p className="mt-1 text-sm text-fog">

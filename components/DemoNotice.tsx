@@ -13,7 +13,7 @@ export function DemoNotice() {
   return (
     <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gold/40 bg-gold/10 px-4 py-2.5 text-sm text-gold">
       <span>
-        <strong className="font-bold">Demo mode</strong> — simulated 2026 season, frozen at Oct 1.
+        <strong className="font-bold">Demo mode:</strong> simulated 2026 season, frozen at Oct 1.
         Sign-in and picks are pretend; your changes stay in this browser.
       </span>
       {confirming ? (

@@ -1,9 +1,11 @@
 "use client";
 
 // ---------------------------------------------------------------------------
-// The heart of the site: the pick form. Renders any contest shape Mother can
-// build — TEAM/WIN/SCORE, moneylines, spreads, over/unders (derived or stat),
-// props, and multi-game pick'em slates — and saves through lib/store.
+// The heart of the site: the pick form. Renders any contest shape Mother
+// Superior can build (TEAM/WIN/SCORE, moneylines, spreads, over/unders
+// (derived or stat), props, and multi-game pick'em slates) and saves through
+// lib/store. Winner and score can never contradict: score edits drive the
+// winner automatically, and a contradictory winner click swaps the scores.
 // ---------------------------------------------------------------------------
 
 import { useState, type ReactNode } from "react";
@@ -18,11 +20,12 @@ import type {
   Submission,
   TeamAbbr,
 } from "@/lib/types";
+import { TIE } from "@/lib/types";
 import { isContestOpen, mySubmission, saveSubmission, useStoreVersion, useUser } from "@/lib/store";
 import { spreadSideFromScore } from "@/lib/scoring";
 import { gameForWeek } from "@/lib/schedule";
 import { teamInfo } from "@/lib/teams";
-import { fmtDateTime, fmtPts } from "@/lib/format";
+import { fmtDateTime, fmtPts, fmtScore } from "@/lib/format";
 import { Btn, Card, Pill, PointsChip } from "@/components/ui";
 import { TeamLogo } from "@/components/TeamLogo";
 
@@ -48,7 +51,7 @@ function draftFrom(sub: Submission): Draft {
   };
 }
 
-/** Whole number 0–99, or null. */
+/** Whole number 0 to 99, or null. */
 function parseScore(raw: string): number | null {
   return /^\d{1,2}$/.test(raw.trim()) ? Number(raw.trim()) : null;
 }
@@ -148,6 +151,10 @@ function answerLine(q: Question, sub: Submission): ReactNode {
   switch (q.kind) {
     case "moneyline": {
       if (typeof a !== "string") return missing;
+      if (a === TIE)
+        return (
+          <span className="text-silver">Called a tie. Score bonuses only; no winner points.</span>
+        );
       const opt = q.options.find((o) => o.team === a);
       return (
         <>
@@ -207,7 +214,8 @@ function answerLine(q: Question, sub: Submission): ReactNode {
               key={g.id}
               className="inline-flex items-center gap-1 rounded-full border border-edge bg-panel-2 px-2 py-0.5 text-xs text-fog"
             >
-              {g.away} @ {g.home} → <span className="font-bold text-chalk">{map[g.id] ?? "—"}</span>
+              {g.away} @ {g.home} →{" "}
+              <span className="font-bold text-chalk">{map[g.id] ?? "no pick"}</span>
             </span>
           ))}
         </span>
@@ -232,7 +240,7 @@ function SubmittedCard({
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-edge px-5 py-4 sm:px-6">
         <div className="flex flex-wrap items-center gap-3">
           <Pill tone="win">PICK IS IN</Pill>
-          <span className="text-sm text-fog">Locked at kickoff — {fmtDateTime(contest.lockAtUTC)}</span>
+          <span className="text-sm text-fog">Locked at kickoff: {fmtDateTime(contest.lockAtUTC)}</span>
         </div>
         {canEdit && (
           <Btn kind="ghost" onClick={onEdit}>
@@ -241,22 +249,32 @@ function SubmittedCard({
         )}
       </div>
       <div className="space-y-4 p-5 sm:p-6">
-        {sub.scorePick && (
-          <div className="flex items-center gap-3">
-            <TeamLogo abbr={sub.scorePick.winner} size={40} />
+        {sub.scorePick &&
+          (sub.scorePick.winner === TIE ? (
             <div>
               <div className="display text-3xl">
-                {teamInfo(sub.scorePick.winner).short} win{" "}
-                {sub.scorePick.winner === "DET"
-                  ? `${sub.scorePick.lions}–${sub.scorePick.opp}`
-                  : `${sub.scorePick.opp}–${sub.scorePick.lions}`}
+                Tie, {fmtScore(sub.scorePick.lions, sub.scorePick.opp)}
               </div>
               <div className="text-xs font-semibold uppercase tracking-[0.2em] text-fog">
                 Team · Win · Score
               </div>
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="flex items-center gap-3">
+              <TeamLogo abbr={sub.scorePick.winner} size={40} />
+              <div>
+                <div className="display text-3xl">
+                  {teamInfo(sub.scorePick.winner).short} win{" "}
+                  {sub.scorePick.winner === "DET"
+                    ? fmtScore(sub.scorePick.lions, sub.scorePick.opp)
+                    : fmtScore(sub.scorePick.opp, sub.scorePick.lions)}
+                </div>
+                <div className="text-xs font-semibold uppercase tracking-[0.2em] text-fog">
+                  Team · Win · Score
+                </div>
+              </div>
+            </div>
+          ))}
         <ul className="space-y-2 text-sm">
           {contest.questions.map((q) => (
             <li key={q.id} className="flex flex-wrap items-center justify-between gap-3">
@@ -281,6 +299,8 @@ export function PickForm({ contest }: { contest: Contest }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [showErrors, setShowErrors] = useState(false);
+  /** Info-tone note shown when the form auto-reconciles winner and score. */
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
 
   if (!user) {
     return (
@@ -302,7 +322,9 @@ export function PickForm({ contest }: { contest: Contest }) {
   if (user.isAdmin) {
     return (
       <Card accent className="p-6 text-center sm:p-8">
-        <div className="display text-2xl">Mother doesn&apos;t pick. Mother grades.</div>
+        <div className="display text-2xl">
+          Mother Superior doesn&apos;t pick. Mother Superior grades.
+        </div>
         <p className="mt-2 text-sm text-fog">
           The house stays off the board. Set the lines, keep the books, grade the week.
         </p>
@@ -328,6 +350,7 @@ export function PickForm({ contest }: { contest: Contest }) {
         onEdit={() => {
           setDraft(draftFrom(existing));
           setShowErrors(false);
+          setSyncNotice(null);
           setEditing(true);
         }}
       />
@@ -339,12 +362,12 @@ export function PickForm({ contest }: { contest: Contest }) {
       <Card className="p-6">
         <div className="display text-2xl text-fog">
           {contest.status === "draft"
-            ? "Mother hasn't posted this slate yet"
+            ? "Mother Superior hasn't posted this slate yet"
             : "Picks are locked for this week"}
         </div>
         <p className="mt-2 text-sm text-fog">
           {contest.status === "draft"
-            ? "The slate lands in your inbox when Mother says it does."
+            ? "The slate lands in your inbox when Mother Superior says it does."
             : "Late by a minute, you lost your pick. Simple. Be on time."}
         </p>
       </Card>
@@ -371,22 +394,20 @@ export function PickForm({ contest }: { contest: Contest }) {
 
   const isDerivedOU = (q: OverUnderQ) => q.source !== "stat" && needsScore && !q.answeredByPlayer;
 
-  /** "Mother does the math" spreads: no side buttons, the score IS the pick. */
+  /** "Mother Superior does the math" spreads: no side buttons, the score IS the pick. */
   const isDerivedSpread = (q: SpreadQ) => !!q.derived && needsScore;
 
-  const scoreConflict =
-    needsScore &&
-    draft.winner != null &&
-    lionsN != null &&
-    oppN != null &&
-    (lionsN === oppN || (draft.winner === "DET" ? lionsN < oppN : oppN < lionsN));
+  /** Winner implied by a complete score. Equal scores are a legal tie pick. */
+  const scoreWinner = (l: number, o: number): TeamAbbr => (l === o ? TIE : l > o ? "DET" : opp);
+
+  const isTiePick = lionsN != null && oppN != null && lionsN === oppN;
 
   const isAnswered = (q: Question): boolean => {
     switch (q.kind) {
       case "moneyline":
         return q === lionsML ? draft.winner != null : typeof draft.answers[q.id] === "string";
       case "spread":
-        // Derived weeks only need the score — Mother does the math on the side.
+        // Derived weeks only need the score; Mother Superior does the math on the side.
         if (isDerivedSpread(q)) return lionsN != null && oppN != null;
         return typeof draft.answers[q.id] === "string";
       case "overUnder":
@@ -396,7 +417,7 @@ export function PickForm({ contest }: { contest: Contest }) {
         }
         return typeof draft.answers[q.id] === "string";
       case "pickem": {
-        // A slate with zero games has nothing to answer — never brick the form.
+        // A slate with zero games has nothing to answer; never brick the form.
         const a = draft.answers[q.id];
         const map = (typeof a === "object" && a != null ? a : {}) as Record<string, string>;
         return q.games.every((g) => typeof map[g.id] === "string");
@@ -410,20 +431,47 @@ export function PickForm({ contest }: { contest: Contest }) {
   if (needsScore) {
     if (draft.winner == null) problems.push("Pick a winner. TEAM. WIN. SCORE.");
     if (lionsN == null || oppN == null)
-      problems.push("Give Mother both scores — whole numbers, 0 to 99.");
-    if (scoreConflict)
-      problems.push(
-        lionsN === oppN
-          ? "Ties don't exist here. Somebody wins."
-          : "Your score has your winner losing. Make the numbers agree with the pick.",
-      );
+      problems.push("Give Mother Superior both scores: whole numbers, 0 to 99.");
   }
   if (contest.questions.some((q) => !isAnswered(q)))
-    problems.push("Answer everything on the slate. Mother doesn't grade partial credit.");
+    problems.push("Answer everything on the slate. Mother Superior doesn't grade partial credit.");
 
   // --- State setters ----------------------------------------------------------
 
-  const setWinner = (team: TeamAbbr) => setDraft((d) => ({ ...d, winner: team }));
+  /**
+   * Winner and score can never contradict. Clicking a side that disagrees
+   * with a complete score swaps the two numbers to match the click; a tied
+   * score ignores the click (the tie note right below explains why).
+   */
+  const setWinner = (team: TeamAbbr) => {
+    if (lionsN != null && oppN != null) {
+      if (lionsN === oppN) return;
+      if (scoreWinner(lionsN, oppN) !== team) {
+        setDraft((d) => ({ ...d, winner: team, lions: d.opp, opp: d.lions }));
+        setSyncNotice("Scores swapped to match your winner.");
+        return;
+      }
+    }
+    setDraft((d) => ({ ...d, winner: team }));
+    setSyncNotice(null);
+  };
+
+  /**
+   * Score edits drive the winner: a complete, unequal score selects the
+   * higher side automatically; an equal score clears the selection to TIE.
+   */
+  const applyScores = (nextLions: string, nextOpp: string) => {
+    const l = parseScore(nextLions);
+    const o = parseScore(nextOpp);
+    const derived = l != null && o != null ? scoreWinner(l, o) : null;
+    const prev = draft.winner;
+    setDraft((d) => ({ ...d, lions: nextLions, opp: nextOpp, winner: derived ?? d.winner }));
+    setSyncNotice(
+      derived != null && derived !== TIE && prev != null && prev !== TIE && derived !== prev
+        ? `Winner changed to ${teamInfo(derived).short} based on your score.`
+        : null,
+    );
+  };
 
   const setAnswer = (qid: string, value: string) =>
     setDraft((d) => ({ ...d, answers: { ...d.answers, [qid]: value } }));
@@ -454,7 +502,8 @@ export function PickForm({ contest }: { contest: Contest }) {
     const answers: Record<string, AnswerValue> = {};
     for (const q of contest.questions) {
       if (q.kind === "moneyline" && q === lionsML) {
-        answers[q.id] = draft.winner!;
+        // A tie pick stores TIE: it matches neither side at grading, by design.
+        answers[q.id] = scoreWinner(lionsN!, oppN!);
         continue;
       }
       if (q.kind === "spread" && isDerivedSpread(q)) {
@@ -473,7 +522,7 @@ export function PickForm({ contest }: { contest: Contest }) {
       submittedAtUTC: new Date().toISOString(),
       answers,
       scorePick: needsScore
-        ? { winner: draft.winner!, lions: lionsN!, opp: oppN! }
+        ? { winner: scoreWinner(lionsN!, oppN!), lions: lionsN!, opp: oppN! }
         : undefined,
     });
     setShowErrors(false);
@@ -488,7 +537,7 @@ export function PickForm({ contest }: { contest: Contest }) {
         if (q === lionsML) return null; // merged into the winner buttons above
         return (
           <section key={q.id}>
-            <QHeader>{q.title ?? "Moneyline — the points divide"}</QHeader>
+            <QHeader>{q.title ?? "Moneyline: the points divide"}</QHeader>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               {q.options.map((o) => (
                 <OptionBtn
@@ -516,7 +565,7 @@ export function PickForm({ contest }: { contest: Contest }) {
             <section key={q.id}>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <QHeader>
-                  {q.title ?? `The spread: ${teamInfo(q.favorite).abbr} −${fmtPts(q.line)} — Mother does the math`}
+                  {q.title ?? `The spread: ${teamInfo(q.favorite).abbr} −${fmtPts(q.line)}. Mother Superior does the math`}
                 </QHeader>
                 <span className="flex flex-wrap items-center gap-2 text-xs font-semibold text-fog">
                   {q.favorite} −{fmtPts(q.line)} <PointsChip points={q.favoritePoints} /> {q.dog}{" "}
@@ -526,12 +575,12 @@ export function PickForm({ contest }: { contest: Contest }) {
               <div className="mt-3 rounded-lg border border-honolulu/40 bg-honolulu/10 px-4 py-3 text-sm text-silver">
                 {side == null ? (
                   <>
-                    Don&apos;t tell Mother a side. Enter your winner and score above — she does the
-                    math on where you landed.
+                    Don&apos;t tell Mother Superior a side. Enter your winner and score above; she
+                    does the math on where you landed.
                   </>
                 ) : (
                   <span className="flex flex-wrap items-center gap-2">
-                    Your score says: {lionsN}–{oppN} →{" "}
+                    Your score says: {fmtScore(lionsN!, oppN!)} →{" "}
                     <span className="font-bold text-chalk">
                       {side === q.favorite
                         ? `${q.favorite} −${fmtPts(q.line)}`
@@ -579,7 +628,7 @@ export function PickForm({ contest }: { contest: Contest }) {
             <section key={q.id}>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <QHeader>
-                  {q.title ?? `Over/Under ${fmtPts(q.line)} — ${q.label}`}
+                  {q.title ?? `Over/Under ${fmtPts(q.line)}: ${q.label}`}
                 </QHeader>
                 <span className="flex flex-wrap items-center gap-2 text-xs font-semibold text-fog">
                   OVER <PointsChip points={q.overPoints} /> UNDER{" "}
@@ -593,15 +642,16 @@ export function PickForm({ contest }: { contest: Contest }) {
               </div>
               <div className="mt-3 rounded-lg border border-honolulu/40 bg-honolulu/10 px-4 py-3 text-sm text-silver">
                 {d == null ? (
-                  <>Enter your winner and score above — your score picks your side here automatically.</>
+                  <>Enter your winner and score above; your score picks your side here automatically.</>
                 ) : d.answer == null ? (
                   <>
-                    Your score says: {lionsN}–{oppN} → {noun} {fmtPts(d.value)} — that lands exactly
-                    on the line and there is no straight-money option this week. Nudge a point.
+                    Your score says: {fmtScore(lionsN!, oppN!)} → {noun} {fmtPts(d.value)}. That
+                    lands exactly on the line and there is no straight-money option this week.
+                    Nudge a point.
                   </>
                 ) : (
                   <span className="flex flex-wrap items-center gap-2">
-                    Your score says: {lionsN}–{oppN} → {noun} {fmtPts(d.value)} →{" "}
+                    Your score says: {fmtScore(lionsN!, oppN!)} → {noun} {fmtPts(d.value)} →{" "}
                     <span className="font-bold text-chalk">
                       {d.answer === "exact"
                         ? `STRAIGHT MONEY on ${fmtPts(q.line)}`
@@ -628,7 +678,7 @@ export function PickForm({ contest }: { contest: Contest }) {
               </OptionBtn>
               {q.exactPoints != null && (
                 <OptionBtn selected={draft.answers[q.id] === "exact"} onClick={() => setAnswer(q.id, "exact")}>
-                  <span>STRAIGHT MONEY — exactly {fmtPts(q.line)}</span>
+                  <span>STRAIGHT MONEY: exactly {fmtPts(q.line)}</span>
                   <PointsChip points={q.exactPoints} />
                 </OptionBtn>
               )}
@@ -661,7 +711,7 @@ export function PickForm({ contest }: { contest: Contest }) {
           <section key={q.id}>
             <div className="flex flex-wrap items-center gap-2">
               <QHeader>
-                {q.title ?? `Pick'em — ${q.games.length} games`}
+                {q.title ?? `Pick'em: ${q.games.length} games`}
               </QHeader>
               <span className="text-xs font-semibold text-fog">
                 +{fmtPts(q.pointsPerCorrect)} per correct
@@ -758,20 +808,23 @@ export function PickForm({ contest }: { contest: Contest }) {
               <ScoreInput
                 label="Lions"
                 value={draft.lions}
-                onChange={(v) => setDraft((d) => ({ ...d, lions: v }))}
+                onChange={(v) => applyScores(v, draft.opp)}
               />
-              <span className="display pb-1 text-2xl text-fog">–</span>
+              <span className="display pb-1 text-2xl text-fog">-</span>
               <ScoreInput
                 label={teamInfo(opp).short}
                 value={draft.opp}
-                onChange={(v) => setDraft((d) => ({ ...d, opp: v }))}
+                onChange={(v) => applyScores(draft.lions, v)}
               />
             </div>
-            {scoreConflict && (
-              <p className="mt-2 text-sm font-semibold text-loss">
-                {lionsN === oppN
-                  ? "Ties don't exist here. Somebody wins."
-                  : `That score has the ${teamInfo(draft.winner!).short} losing. TEAM. WIN. SCORE — make them agree.`}
+            {isTiePick && (
+              <p className="mt-3 rounded-lg border border-honolulu/40 bg-honolulu/10 px-4 py-3 text-sm text-silver">
+                That score is a tie. Bold. A tie pick chases score bonuses only; no winner points.
+              </p>
+            )}
+            {syncNotice && !isTiePick && (
+              <p className="mt-3 rounded-lg border border-honolulu/40 bg-honolulu/10 px-4 py-3 text-sm font-semibold text-sky">
+                {syncNotice}
               </p>
             )}
           </section>
@@ -793,7 +846,7 @@ export function PickForm({ contest }: { contest: Contest }) {
         )}
 
         <div className="flex flex-wrap items-center gap-3 border-t border-edge pt-4">
-          <Btn onClick={save}>{existing ? "Update pick" : "Send it to Mother"}</Btn>
+          <Btn onClick={save}>{existing ? "Update pick" : "Send it to Mother Superior"}</Btn>
           {existing && (
             <Btn kind="ghost" onClick={() => setEditing(false)}>
               Cancel

@@ -1,18 +1,21 @@
 "use client";
 
 // ---------------------------------------------------------------------------
-// "Enter the Pool" — demo sign-in. Pick a character, become that character.
+// "Enter the Pool": demo sign-in. Pick a character, become that character.
 // The live version runs real accounts through Clerk; here identity is a
-// localStorage key and nothing more.
+// localStorage key and nothing more. Cards show nicknames only; real names
+// never render outside the admin wing.
 // ---------------------------------------------------------------------------
 
 import { useRouter } from "next/navigation";
 import { EVERYONE } from "@/lib/demo-data";
-import { signIn } from "@/lib/store";
+import { publicName, signIn, useHydrated, useStoreVersion } from "@/lib/store";
 import { Card, Pill, SectionTitle } from "@/components/ui";
 
 export default function LoginPage() {
   const router = useRouter();
+  const hydrated = useHydrated();
+  useStoreVersion();
 
   const enter = (id: string) => {
     signIn(id);
@@ -45,8 +48,9 @@ export default function LoginPage() {
               style={{ background: p.avatarColor }}
             />
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-bold text-chalk">{p.name}</span>
-              {p.nickname && <span className="block truncate text-xs text-fog">{p.nickname}</span>}
+              <span className="block truncate text-sm font-bold text-chalk">
+                {hydrated ? publicName(p) : p.nickname}
+              </span>
             </span>
             {p.isAdmin && <Pill tone="gold">Commissioner</Pill>}
           </button>

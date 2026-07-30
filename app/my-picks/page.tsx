@@ -2,20 +2,22 @@
 
 // ---------------------------------------------------------------------------
 // My Picks: the signed-in player's ledger. Season summary up top, then one
-// card per week — picks in plain language, and Mother's math once graded.
+// card per week: picks in plain language, and Mother Superior's math once
+// graded.
 // ---------------------------------------------------------------------------
 
 import Link from "next/link";
 import { Card, EmptyState, Pill, SectionTitle } from "@/components/ui";
 import { TeamLogo } from "@/components/TeamLogo";
 import { CONTESTS, PLAYERS, resultsForWeek, submissionsForWeek } from "@/lib/demo-data";
-import { fmtDateTime, fmtPts, ordinal, signedPts } from "@/lib/format";
+import { fmtDateTime, fmtPts, fmtScore, ordinal, signedPts } from "@/lib/format";
 import { gameForWeek } from "@/lib/schedule";
 import { computeStandings, gradeWeek, type SeasonInput } from "@/lib/scoring";
 import {
   effectiveContests,
   effectiveResults,
   effectiveSubmissions,
+  publicName,
   useHydrated,
   useStoreVersion,
   useUser,
@@ -54,12 +56,12 @@ function answerLines(q: Question, a: AnswerValue | undefined, graded: boolean): 
       if (typeof a !== "string") return [];
       if (a === "exact") {
         return [
-          `Straight Money on ${fmtPts(q.line)} — ${q.label} (${pays} ${signedPts(q.exactPoints ?? 0)})`,
+          `Straight Money on ${fmtPts(q.line)}: ${q.label} (${pays} ${signedPts(q.exactPoints ?? 0)})`,
         ];
       }
       const over = a === "over";
       return [
-        `${over ? "Over" : "Under"} ${fmtPts(q.line)} — ${q.label} (${pays} ${signedPts(over ? q.overPoints : q.underPoints)})`,
+        `${over ? "Over" : "Under"} ${fmtPts(q.line)}: ${q.label} (${pays} ${signedPts(over ? q.overPoints : q.underPoints)})`,
       ];
     }
     case "prop": {
@@ -74,18 +76,18 @@ function answerLines(q: Question, a: AnswerValue | undefined, graded: boolean): 
         .filter((g) => picks[g.id])
         .map(
           (g) =>
-            `${teamInfo(g.away).short} at ${teamInfo(g.home).short} — took the ${teamInfo(picks[g.id]).short}`,
+            `${teamInfo(g.away).short} at ${teamInfo(g.home).short}: took the ${teamInfo(picks[g.id]).short}`,
         );
     }
   }
 }
 
-/** "Score: BUF 30–27" — winner's score first, the way Mother reads them. */
+/** "Score: BUF 30-27", winner's score first, the way Mother Superior reads them. */
 function scorePickText(p: ScorePick): string {
   const lionsWin = p.winner === "DET";
   const hi = lionsWin ? p.lions : p.opp;
   const lo = lionsWin ? p.opp : p.lions;
-  return `Score: ${p.winner} ${hi}–${lo}`;
+  return `Score: ${p.winner} ${fmtScore(hi, lo)}`;
 }
 
 // --- One week of the ledger -------------------------------------------------
@@ -162,13 +164,13 @@ function WeekCard({
             <div className="mt-2 text-xs text-fog">Submitted {fmtDateTime(sub.submittedAtUTC)}</div>
           </>
         ) : graded ? (
-          <p className="text-sm text-fog">No pick. Zero points. Mother remembers.</p>
+          <p className="text-sm text-fog">No pick. Zero points. Mother Superior remembers.</p>
         ) : null}
 
         {graded && grade && (
           <div className="mt-4 border-t border-edge pt-3">
             <div className="text-xs font-semibold uppercase tracking-[0.2em] text-fog">
-              Mother’s math
+              Mother Superior’s math
             </div>
             <div className="mt-2 space-y-1">
               {grade.items.map((item, i) => (
@@ -200,7 +202,9 @@ function WeekCard({
                 </div>
               ))}
               {grade.items.length === 0 && (
-                <p className="text-sm text-fog">Nothing gradable. Mother found nothing to pay.</p>
+                <p className="text-sm text-fog">
+                  Nothing gradable. Mother Superior found nothing to pay.
+                </p>
               )}
             </div>
           </div>
@@ -243,7 +247,7 @@ export default function MyPicksPage() {
       <div className="space-y-6">
         <SectionTitle kicker="My picks">The Ledger</SectionTitle>
         <EmptyState title="Nobody’s signed in">
-          <p>No name, no picks, no points. Mother can’t grade a ghost.</p>
+          <p>No name, no picks, no points. Mother Superior can’t grade a ghost.</p>
           <Link href="/login/" className="mt-3 inline-block font-bold text-sky hover:underline">
             Enter the Pool →
           </Link>
@@ -256,7 +260,7 @@ export default function MyPicksPage() {
     return (
       <div className="space-y-6">
         <SectionTitle kicker="My picks">The House Doesn’t Play</SectionTitle>
-        <EmptyState title="Mother doesn’t pick. Mother grades.">
+        <EmptyState title="Mother Superior doesn’t pick. Mother Superior grades.">
           <p>
             The Commissioner sets the lines, keeps the books, and remembers everything. There’s no
             ledger here because the house never loses.
@@ -303,10 +307,6 @@ export default function MyPicksPage() {
   return (
     <div className="space-y-6">
       <SectionTitle kicker="My picks">The Ledger</SectionTitle>
-      <p className="max-w-2xl text-sm text-fog">
-        Every pick, every point, every mistake. Mother keeps the books so you don’t have to. Team.
-        Win. Score.
-      </p>
 
       <Card accent className="p-5 sm:p-6">
         <div className="flex flex-wrap items-end justify-between gap-6">
@@ -319,9 +319,10 @@ export default function MyPicksPage() {
                 className="inline-block h-3 w-3 rounded-full"
                 style={{ background: user.avatarColor }}
               />
-              <span className="display text-3xl">{user.name}</span>
+              <span className="display text-3xl">
+                {hydrated ? publicName(user) : user.nickname}
+              </span>
             </div>
-            {user.nickname && <div className="mt-1 text-sm text-fog">“{user.nickname}”</div>}
           </div>
           <div className="flex flex-wrap items-end gap-8">
             <div className="text-right">
@@ -332,8 +333,14 @@ export default function MyPicksPage() {
             </div>
             <div className="text-right">
               <div className="text-xs font-semibold uppercase tracking-[0.2em] text-fog">Rank</div>
-              <div className="display text-5xl">{me ? ordinal(me.rank) : "—"}</div>
+              <div className="display text-5xl">{me ? ordinal(me.rank) : "TBD"}</div>
               <div className="text-xs text-fog">of {PLAYERS.length} players</div>
+              <Link
+                href="/nums/"
+                className="text-xs font-semibold text-sky transition hover:text-chalk"
+              >
+                See the Nums →
+              </Link>
             </div>
           </div>
         </div>

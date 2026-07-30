@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------------
 // Demo season data: the 2026 schedule dressed with slates modeled on what
-// Mother actually ran in 2025 (see 2025 Pool.md). The demo clock is frozen
+// Mother Superior actually ran in 2025 (see 2025 Pool.md). The demo clock is frozen
 // at Thursday Oct 1, 2026: Weeks 1–3 graded, Week 4 open, Week 5+ drafts.
 // Standings are computed live by lib/scoring.ts from this data — there is
 // no hand-entered standings table anywhere.
@@ -13,25 +13,30 @@ export const CURRENT_WEEK = 4;
 
 // --- People ----------------------------------------------------------------
 
+// `name` and `email` are the private identity: ADMIN-ONLY, never rendered on
+// a public page. `nickname` is the only name the pool ever sees, and only
+// Mother Superior can set or change it. Avatar colors are a CVD-validated
+// 10-slot categorical palette (fixed assignment order; used as series colors
+// in the season graph, so never reassign them by rank).
 export const MOTHER: Participant = {
   id: "mother",
-  name: "Mother",
-  nickname: "The Commissioner",
+  name: "The Commissioner",
+  nickname: "Mother Superior",
   avatarColor: "#0076b6",
   isAdmin: true,
 };
 
 export const PLAYERS: Participant[] = [
-  { id: "bigcat", name: "Big Cat Kowalski", avatarColor: "#f59e0b" },
-  { id: "tina", name: "Two-Point Tina", avatarColor: "#10b981" },
-  { id: "denny", name: "Denny Coneys", avatarColor: "#ec4899" },
-  { id: "chops", name: "Chops McGraw", avatarColor: "#84cc16" },
-  { id: "gary", name: "Gravy Boat Gary", avatarColor: "#f97316" },
-  { id: "uncle", name: "Uncle Spread", avatarColor: "#eab308" },
-  { id: "intern", name: "The Intern", avatarColor: "#64748b" },
-  { id: "muscle", name: "Polish Muscle", avatarColor: "#06b6d4" },
-  { id: "machine", name: "The Machine", nickname: "0-fer specialist", avatarColor: "#8b5cf6" },
-  { id: "eddie", name: "Sweaty Eddie", avatarColor: "#ef4444" },
+  { id: "tina", name: "Tina Kaczmarek", email: "tina@lionspool.demo", nickname: "Two-Point Tina", avatarColor: "#3987e5" },
+  { id: "denny", name: "Dennis Coney", email: "denny@lionspool.demo", nickname: "Denny Coneys", avatarColor: "#d95926" },
+  { id: "bigcat", name: "Dan Kowalski", email: "dank@lionspool.demo", nickname: "Big Cat", avatarColor: "#199e70" },
+  { id: "chops", name: "Charlie McGraw", email: "chops@lionspool.demo", nickname: "Chops", avatarColor: "#c98500" },
+  { id: "uncle", name: "Rich Spadafore", email: "rich@lionspool.demo", nickname: "Uncle Spread", avatarColor: "#d55181" },
+  { id: "gary", name: "Gary Gervin", email: "gary@lionspool.demo", nickname: "Gravy Boat", avatarColor: "#008300" },
+  { id: "intern", name: "Kyle Burton", email: "kyle@lionspool.demo", nickname: "The Intern", avatarColor: "#9085e9" },
+  { id: "muscle", name: "Stan Wozniak", email: "stan@lionspool.demo", nickname: "Polish Muscle", avatarColor: "#e66767" },
+  { id: "machine", name: "Marty Loveland", email: "marty@lionspool.demo", nickname: "The Machine", avatarColor: "#0891b2" },
+  { id: "eddie", name: "Ed Sweeney", email: "eddie@lionspool.demo", nickname: "Sweaty Eddie", avatarColor: "#b45309" },
 ];
 
 export const EVERYONE: Participant[] = [MOTHER, ...PLAYERS];
@@ -47,7 +52,7 @@ export const CONTESTS: Contest[] = [
     week: 1,
     title: "Old Reliable: Team / Win / Score",
     blurb:
-      "Season opener at the Ford. The Saints are coming to Detroit to get their annual physical. You know the drill by now — TEAM, WIN, SCORE. Nothing cute. Nothing fresh. Don't be an idiot.",
+      "Season opener at the Ford. The Saints are coming to Detroit to get their annual physical. You know the drill by now. TEAM, WIN, SCORE. Nothing cute. Nothing fresh. Don't be an idiot.",
     motherSays: "LIONS WIN 31-13",
     hasLionsGame: true,
     lockAtUTC: "2026-09-13T17:00Z",
@@ -68,7 +73,7 @@ export const CONTESTS: Contest[] = [
     week: 2,
     title: "Thursday Night Spread in Buffalo",
     blurb:
-      "Short week, cold parking lots, folding tables. Mother's line: BILLS −2.5. Take a side and give me your score. Eight points either way, so no whining about the divide.",
+      "Short week, cold parking lots, folding tables. Mother Superior's line: BILLS −2.5. Take a side and give me your score. Eight points either way, so no whining about the divide.",
     motherSays: "LIONS WIN 27-24",
     hasLionsGame: true,
     lockAtUTC: "2026-09-18T00:15Z",
@@ -88,7 +93,7 @@ export const CONTESTS: Contest[] = [
   },
   {
     week: 3,
-    title: "Jets at the Ford — The Points Divide",
+    title: "Jets at the Ford: The Points Divide",
     blurb:
       "The Jets exist, technically, and they're coming to Detroit. Everybody on earth knows how this ends, so the divide is ugly on purpose. Longshots welcome. Ask The Machine how that's been going since 2019.",
     motherSays: "LIONS WIN 34-10",
@@ -111,7 +116,7 @@ export const CONTESTS: Contest[] = [
     week: 4,
     title: "Sunday Night in Charlotte + The Total",
     blurb:
-      "Prime time against the Panthers. Same as always — TEAM, WIN, SCORE — and this week your score does double duty: the combined total is OVER/UNDER 44.5. Your score pick decides your side automatically, so pick a score you actually believe in.",
+      "Prime time against the Panthers. Same as always: TEAM, WIN, SCORE. This week your score does double duty: the combined total is OVER/UNDER 44.5. Your score pick decides your side automatically, so pick a score you actually believe in.",
     motherSays: "LIONS WIN 34-20",
     hasLionsGame: true,
     lockAtUTC: "2026-10-05T00:20Z",
@@ -132,7 +137,7 @@ export const CONTESTS: Contest[] = [
   {
     week: 5,
     title: "Desert Divide in Glendale",
-    blurb: "Lions in the desert. The divide says everything about how Mother feels about Arizona.",
+    blurb: "Lions in the desert. The divide says everything about how Mother Superior feels about Arizona.",
     hasLionsGame: true,
     lockAtUTC: "2026-10-11T20:25Z",
     questions: [
@@ -152,7 +157,7 @@ export const CONTESTS: Contest[] = [
     week: 6,
     title: "Bye Week Around-the-League Slate",
     blurb:
-      "The boys get a week off. You don't. Five games, four points a pop. Run the table and the payout bumps to 25. Go 0-for-5 — perfectly, beautifully wrong — and Mother pays 30. That is not a typo. Incompetence at scale deserves a reward.",
+      "The boys get a week off. You don't. Five games, four points a pop. Run the table and the payout bumps to 25. Go 0-for-5, perfectly and beautifully wrong, and Mother Superior pays 30. That is not a typo. Incompetence at scale deserves a reward.",
     hasLionsGame: false,
     lockAtUTC: "2026-10-18T17:00Z",
     questions: [
@@ -178,7 +183,7 @@ export const CONTESTS: Contest[] = [
     week: 7,
     title: "Packers Week. Even Money.",
     blurb:
-      "Green Bay at the Ford. Twelve points either way because this rivalry doesn't need Mother's thumb on the scale. TEAM, WIN, SCORE.",
+      "Green Bay at the Ford. Twelve points either way because this rivalry doesn't need Mother Superior's thumb on the scale. TEAM, WIN, SCORE.",
     hasLionsGame: true,
     lockAtUTC: "2026-10-25T20:25Z",
     questions: [
@@ -236,7 +241,7 @@ export const CONTESTS: Contest[] = [
     week: 10,
     title: "Munich: Over / Under / Straight Money",
     blurb:
-      "The Lions play the Patriots in Munich, Germany, at 9:30 in the morning like animals. THE NUMBER IS 47. Your score pick puts you Over, Under, or — if you land the combined total exactly on 47 — Straight Money for the big payout.",
+      "The Lions play the Patriots in Munich, Germany, at 9:30 in the morning like animals. THE NUMBER IS 47. Your score pick puts you Over, Under, or, if you land the combined total exactly on 47, Straight Money for the big payout.",
     hasLionsGame: true,
     lockAtUTC: "2026-11-15T14:30Z",
     questions: [
@@ -258,14 +263,14 @@ export const CONTESTS: Contest[] = [
     week: 11,
     title: "Tampa Prop Pack",
     blurb:
-      "Four answers, five points apiece. Sweep all four and Mother adds five more. Go 0-for-4 and you get nothing, which you will have earned.",
+      "Four answers, five points apiece. Sweep all four and Mother Superior adds five more. Go 0-for-4 and you get nothing, which you will have earned.",
     hasLionsGame: true,
     lockAtUTC: "2026-11-22T18:00Z",
     questions: [
       {
         id: "w11-ml",
         kind: "moneyline",
-        title: "Who wins — Lions or Bucs? (score required as always)",
+        title: "Who wins: Lions or Bucs? (score required as always)",
         options: [
           { team: "DET", points: 5 },
           { team: "TB", points: 5 },
@@ -310,7 +315,7 @@ export const CONTESTS: Contest[] = [
     week: 12,
     title: "Thanksgiving: Bears, Gravy, and a Fat Spread",
     blurb:
-      "The Turkey Day game. Mother's line: LIONS −10.5. Cover pays 13. Take the Bears plus the points (or outright) for 6. Eat something first, then pick like an adult.",
+      "The Turkey Day game. Mother Superior's line: LIONS −10.5. Cover pays 13. Take the Bears plus the points (or outright) for 6. Eat something first, then pick like an adult.",
     hasLionsGame: true,
     lockAtUTC: "2026-11-26T18:00Z",
     questions: [
@@ -400,7 +405,7 @@ export const CONTESTS: Contest[] = [
     week: 15,
     title: "December Five-Game Slate (+ Lions Score for Bonuses)",
     blurb:
-      "Five games, four points per correct pick. All five right pays 25. All five wrong pays 30, because perfection is perfection. Give me the Lions–Vikings score too — bonuses only.",
+      "Five games, four points per correct pick. All five right pays 25. All five wrong pays 30, because perfection is perfection. Give me the Lions-Vikings score too, bonuses only.",
     hasLionsGame: true,
     // Locks at the slate's earliest kickoff (Saturday game), not the Lions game.
     lockAtUTC: "2026-12-20T01:20Z",
@@ -425,9 +430,9 @@ export const CONTESTS: Contest[] = [
   },
   {
     week: 16,
-    title: "Monday Night Giants — Mother Does the Math",
+    title: "Monday Night Giants: Mother Superior Does the Math",
     blurb:
-      "The spread is LIONS −13.5. Don't tell me a side. Give me the WINNER and the SCORE like always and Mother will do the math on where you landed.",
+      "The spread is LIONS −13.5. Don't tell me a side. Give me the WINNER and the SCORE like always and Mother Superior will do the math on where you landed.",
     hasLionsGame: true,
     lockAtUTC: "2026-12-29T01:15Z",
     questions: [
@@ -501,7 +506,7 @@ export const CONTESTS: Contest[] = [
         line: 3.5,
         favoritePoints: 14.5,
         dogPoints: 14.5,
-        // "Winner and score, one last time" — Mother does the math.
+        // "Winner and score, one last time" — Mother Superior does the math.
         derived: true,
       },
     ],
@@ -548,7 +553,7 @@ export const SUBMISSIONS: Submission[] = [
   { userId: "bigcat", week: 2, submittedAtUTC: at(2, "2026-09-16T21:45:00Z"), answers: { "w2-spread": "BUF" }, scorePick: { winner: "BUF", lions: 20, opp: 27 } },
   { userId: "machine", week: 2, submittedAtUTC: at(2, "2026-09-17T23:40:00Z"), answers: { "w2-spread": "BUF" }, scorePick: { winner: "BUF", lions: 10, opp: 34 } },
   { userId: "gary", week: 2, submittedAtUTC: at(2, "2026-09-17T15:00:00Z"), answers: { "w2-spread": "DET" }, scorePick: { winner: "DET", lions: 24, opp: 21 } },
-  { userId: "muscle", week: 2, submittedAtUTC: at(2, "2026-09-17T19:19:00Z"), answers: { "w2-spread": "DET" }, scorePick: { winner: "DET", lions: 28, opp: 24 } },
+  // Polish Muscle ghosted Week 2 entirely. The Shame list remembers.
   { userId: "chops", week: 2, submittedAtUTC: at(2, "2026-09-17T22:05:00Z"), answers: { "w2-spread": "BUF" }, scorePick: { winner: "BUF", lions: 28, opp: 31 } },
   { userId: "uncle", week: 2, submittedAtUTC: at(2, "2026-09-17T21:30:00Z"), answers: { "w2-spread": "DET" }, scorePick: { winner: "DET", lions: 20, opp: 17 } },
   { userId: "intern", week: 2, submittedAtUTC: at(2, "2026-09-18T00:10:00Z"), answers: { "w2-spread": "BUF" }, scorePick: { winner: "BUF", lions: 23, opp: 24 } },
