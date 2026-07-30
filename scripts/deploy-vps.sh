@@ -10,6 +10,7 @@ PK=$(ssh lionspool-vps "grep -o 'pk_live_[A-Za-z0-9]*' /var/www/lionspool-app/.e
 
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="$PK" \
 NEXT_PUBLIC_CLERK_SIGN_IN_URL="/sign-in" \
+NEXT_PUBLIC_CLERK_SIGN_UP_URL="/sign-up" \
 NEXT_PUBLIC_ADMIN_EMAILS="mike@hark.digital" \
 CLERK_KEYLESS_DISABLED=1 \
 npx next build

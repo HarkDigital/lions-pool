@@ -18,6 +18,9 @@ export function Nav() {
   const user = useUser();
   const doSignOut = useSignOut();
 
+  // The auth screens stand alone: no chrome around the front door.
+  if (/^\/sign-(in|up)/.test(pathname)) return null;
+
   // Route-derived, so it is correct in the prerendered HTML of each area.
   const inDemo = /(^|\/)demo(\/|$)/.test(pathname);
   const prefix = inDemo ? "/demo" : "";

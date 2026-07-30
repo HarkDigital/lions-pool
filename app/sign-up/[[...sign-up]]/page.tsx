@@ -1,26 +1,25 @@
 import Link from "next/link";
-import { SignIn } from "@clerk/nextjs";
+import { SignUp } from "@clerk/nextjs";
 import { LogoMark } from "@/components/LogoMark";
 
-// The front door. No site chrome, vertically centered, no vendor badge
-// (the widget footer is hidden; the sign-up cross-link below is ours).
-export default function SignInPage() {
+// Account creation, same standalone treatment as the front door.
+export default function SignUpPage() {
   return (
     <div className="flex min-h-[calc(100dvh-7rem)] flex-col items-center justify-center gap-8">
       <LogoMark height={44} />
-      <SignIn />
+      <SignUp />
       <div className="flex flex-col items-center gap-3">
         <p className="text-sm text-silver">
-          {"New to the pool? "}
+          {"Already in the pool? "}
           <Link
-            href="/sign-up/"
+            href="/sign-in/"
             className="font-bold text-sky underline-offset-2 transition hover:underline"
           >
-            Create your account
+            Sign in
           </Link>
         </p>
         <p className="text-xs font-semibold uppercase tracking-[0.25em] text-fog">
-          Members only. Mother Superior knows who you are.
+          Mother Superior assigns your nickname. Choose nothing.
         </p>
       </div>
     </div>

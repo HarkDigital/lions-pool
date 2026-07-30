@@ -6,6 +6,7 @@ import { LogoMark } from "./LogoMark";
 export function Footer() {
   const pathname = usePathname();
   const inDemo = /(^|\/)demo(\/|$)/.test(pathname);
+  if (/^\/sign-(in|up)/.test(pathname)) return null;
   return (
     <footer className="border-t border-edge py-10">
       <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-3 px-4 text-center sm:px-6">

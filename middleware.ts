@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 // The whole pool lives behind the door. Signed out, you see the sign-in
 // screen and nothing else — live area, demo area, admin, all of it.
-const isPublicRoute = createRouteMatcher(["/sign-in(.*)"]);
+const isPublicRoute = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)"]);
 
 // Keys are read from the server's runtime environment on purpose: the secret
 // never enters a local build. An explicit redirect (not auth.protect()'s

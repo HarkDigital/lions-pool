@@ -81,3 +81,9 @@ body {
   background: var(--color-honolulu);
   color: white;
 }
+
+/* Clerk widget: the card footer carries vendor branding; the auth pages
+   provide their own sign-in/sign-up cross-links instead. */
+.cl-footer {
+  display: none !important;
+}
