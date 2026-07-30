@@ -17,6 +17,7 @@ const ADMIN_LINKS = [
   { href: "/admin/submissions/", label: "Submissions" },
   { href: "/admin/contests/", label: "Contest Builder" },
   { href: "/admin/grading/", label: "Grading" },
+  { href: "/admin/mother/", label: "Her Picks" },
   { href: "/admin/players/", label: "Players" },
   { href: "/admin/payments/", label: "Payments" },
 ];

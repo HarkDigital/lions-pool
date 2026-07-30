@@ -69,6 +69,7 @@ const KEY_NAMES = [
   "nicknames",
   "payments",
   "settings",
+  "motherpicks",
 ] as const;
 
 // --- Baked data per area -----------------------------------------------------
@@ -327,6 +328,35 @@ export function publicName(p: Participant): string {
 export function saveNickname(userId: string, nickname: string) {
   const overlay = readJSON<Record<string, string>>(k("nicknames"), {});
   writeJSON(k("nicknames"), { ...overlay, [userId]: nickname });
+}
+
+// --- Mother Superior's weekly picks ------------------------------------------
+
+/**
+ * The house line: Mother Superior's published pick for a week. Shown to the
+ * pool via the contest's "Mother Superior Says" strip; not a graded
+ * submission and never part of the Nums.
+ */
+export interface MothersPick {
+  week: number;
+  winner?: string; // team abbr or TIE
+  lions?: number;
+  opp?: number;
+  /** Extra calls, e.g. "GOFF OVER / WILLIAMS UNDER". */
+  extra?: string;
+}
+
+export function mothersPickFor(week: number): MothersPick | undefined {
+  const local = readJSON<MothersPick[]>(k("motherpicks"), []);
+  return local.find((r) => r.week === week);
+}
+
+export function saveMothersPick(pick: MothersPick, says: string) {
+  const local = readJSON<MothersPick[]>(k("motherpicks"), []);
+  const rest = local.filter((r) => r.week !== pick.week);
+  writeJSON(k("motherpicks"), [...rest, pick]);
+  const contest = effectiveContest(pick.week);
+  if (contest) saveContest({ ...contest, motherSays: says || undefined });
 }
 
 // --- Season scoring settings (Commissioner-set) ------------------------------

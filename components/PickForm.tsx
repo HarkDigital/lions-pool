@@ -322,17 +322,16 @@ export function PickForm({ contest }: { contest: Contest }) {
   if (user.isAdmin) {
     return (
       <Card accent className="p-6 text-center sm:p-8">
-        <div className="display text-2xl">
-          Mother Superior doesn&apos;t pick. Mother Superior grades.
-        </div>
+        <div className="display text-2xl">Mother Superior picks from her office.</div>
         <p className="mt-2 text-sm text-fog">
-          The house stays off the board. Set the lines, keep the books, grade the week.
+          The house line goes up in the Admin wing and the whole pool reads it here. Set the
+          lines, publish her picks, keep the books, grade the week.
         </p>
         <Link
-          href="/admin/"
+          href="/admin/mother/"
           className="mt-4 inline-flex items-center justify-center rounded-lg bg-honolulu px-5 py-2.5 text-sm font-bold text-white transition hover:bg-honolulu-deep"
         >
-          Go run the pool
+          Set her picks
         </Link>
       </Card>
     );

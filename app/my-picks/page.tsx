@@ -264,14 +264,18 @@ export default function MyPicksPage() {
   if (user.isAdmin) {
     return (
       <div className="space-y-6">
-        <SectionTitle kicker="My picks">The House Doesn’t Play</SectionTitle>
-        <EmptyState title="Mother Superior doesn’t pick. Mother Superior grades.">
+        <SectionTitle kicker="My picks">The House Line</SectionTitle>
+        <EmptyState title="Mother Superior picks from her office.">
           <p>
-            The Commissioner sets the lines, keeps the books, and remembers everything. There’s no
-            ledger here because the house never loses.
+            The Commissioner publishes her picks as the house line, sets the lines, keeps the
+            books, and remembers everything. Her ledger lives in the Admin wing; the Nums belong
+            to the players.
           </p>
-          <Link href="/admin/" className="mt-3 inline-block font-bold text-gold hover:underline">
-            Go run the pool →
+          <Link
+            href="/admin/mother/"
+            className="mt-3 inline-block font-bold text-gold hover:underline"
+          >
+            Set her picks →
           </Link>
         </EmptyState>
       </div>

@@ -30,9 +30,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       }}
     >
       <html lang="en" className={`${bebas.variable} ${barlow.variable}`}>
-        <body>
+        {/* Flex column pins the footer to the viewport bottom on short pages. */}
+        <body className="flex min-h-dvh flex-col">
           <Nav />
-          <main className="mx-auto w-full max-w-6xl px-4 pb-20 pt-8 sm:px-6">
+          <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-20 pt-8 sm:px-6">
             <DemoNotice />
             {children}
           </main>
