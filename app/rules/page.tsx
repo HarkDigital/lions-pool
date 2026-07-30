@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { AreaLink as Link } from "@/components/AreaLink";
 import { Card, Pill, PointsChip, SectionTitle } from "@/components/ui";
 import { TeamLogo } from "@/components/TeamLogo";
 import { BONUS } from "@/lib/scoring";

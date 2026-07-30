@@ -17,23 +17,32 @@ export function Nav() {
   const pathname = usePathname();
   const user = useUser();
 
-  const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href.replace(/\/$/, ""));
+  // Route-derived, so it is correct in the prerendered HTML of each area.
+  const inDemo = /(^|\/)demo(\/|$)/.test(pathname);
+  const prefix = inDemo ? "/demo" : "";
+
+  const isActive = (href: string) => {
+    const full = `${prefix}${href}`;
+    if (href === "/") return pathname === full || pathname === `${prefix}`;
+    return pathname.startsWith(full.replace(/\/$/, ""));
+  };
+
+  const areaLinks = LINKS.map((l) => ({ ...l, href: `${prefix}${l.href}` }));
 
   return (
     <header className="sticky top-0 z-40 border-b border-edge bg-pitch/85 backdrop-blur">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-        <Link href="/" className="shrink-0">
+        <Link href={inDemo ? "/demo/" : "/"} className="shrink-0">
           <LogoLockup compact />
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex">
-          {LINKS.map((l) => (
+          {areaLinks.map((l, i) => (
             <Link
               key={l.href}
               href={l.href}
               className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
-                isActive(l.href)
+                isActive(LINKS[i].href)
                   ? "bg-honolulu/15 text-sky"
                   : "text-fog hover:bg-panel-2 hover:text-silver"
               }`}
@@ -43,14 +52,33 @@ export function Nav() {
           ))}
           {user?.isAdmin && (
             <Link
-              href="/admin/"
+              href={`${prefix}/admin/`}
               className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
-                isActive("/admin/")
+                pathname.startsWith(`${prefix}/admin`)
                   ? "bg-gold/15 text-gold"
                   : "text-gold/70 hover:bg-panel-2 hover:text-gold"
               }`}
             >
               Admin
+            </Link>
+          )}
+          {inDemo ? (
+            <Link
+              href="/"
+              className="rounded-lg border border-gold/40 px-3 py-1.5 text-sm font-semibold text-gold transition hover:bg-gold/10"
+            >
+              Exit Demo
+            </Link>
+          ) : (
+            <Link
+              href="/demo/"
+              className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
+                pathname.startsWith("/demo")
+                  ? "bg-gold/15 text-gold"
+                  : "text-fog hover:bg-panel-2 hover:text-gold"
+              }`}
+            >
+              Demo
             </Link>
           )}
         </nav>
@@ -77,7 +105,7 @@ export function Nav() {
             </>
           ) : (
             <Link
-              href="/login/"
+              href={`${prefix}/login/`}
               className="rounded-lg bg-honolulu px-4 py-1.5 text-sm font-bold text-white transition hover:bg-honolulu-deep"
             >
               Enter the Pool
@@ -88,12 +116,26 @@ export function Nav() {
 
       {/* Mobile nav */}
       <nav className="flex items-center gap-1 overflow-x-auto px-4 pb-2 md:hidden">
-        {[...LINKS, ...(user?.isAdmin ? [{ href: "/admin/", label: "Admin" }] : [])].map((l) => (
+        {[
+          ...areaLinks.map((l, i) => ({ ...l, active: isActive(LINKS[i].href) })),
+          ...(user?.isAdmin
+            ? [
+                {
+                  href: `${prefix}/admin/`,
+                  label: "Admin",
+                  active: pathname.startsWith(`${prefix}/admin`),
+                },
+              ]
+            : []),
+          inDemo
+            ? { href: "/", label: "Exit Demo", active: false }
+            : { href: "/demo/", label: "Demo", active: pathname.startsWith("/demo") },
+        ].map((l) => (
           <Link
-            key={l.href}
+            key={l.href + l.label}
             href={l.href}
             className={`whitespace-nowrap rounded-lg px-3 py-1 text-xs font-semibold ${
-              isActive(l.href) ? "bg-honolulu/15 text-sky" : "text-fog"
+              l.active ? "bg-honolulu/15 text-sky" : "text-fog"
             }`}
           >
             {l.label}

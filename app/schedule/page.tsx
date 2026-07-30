@@ -3,22 +3,23 @@
 // ---------------------------------------------------------------------------
 // /schedule — the full 2026 Lions season, one card per week. Graded weeks
 // show the final; the open week points at the pick form; everything else
-// waits for Mother Superior to drop the slate.
+// waits for Mother Superior to drop the slate. The prerender is
+// area-agnostic: a LoadingCard until hydration, then contests and results
+// come from the current area's store.
 // ---------------------------------------------------------------------------
 
-import Link from "next/link";
+import { AreaLink as Link } from "@/components/AreaLink";
 import type { Contest, ScheduleGame, WeekResults } from "@/lib/types";
 import { ALL_WEEKS, BYE_WEEK, SEASON, gameForWeek } from "@/lib/schedule";
-import { CONTESTS, RESULTS } from "@/lib/demo-data";
 import {
+  allEffectiveResults,
   effectiveContests,
-  effectiveResults,
   useHydrated,
   useStoreVersion,
 } from "@/lib/store";
 import { teamInfo } from "@/lib/teams";
 import { fmtGameDay, fmtKickoff, fmtScore } from "@/lib/format";
-import { Card, Pill, STATUS_TONE, SectionTitle } from "@/components/ui";
+import { Card, LoadingCard, Pill, STATUS_TONE, SectionTitle } from "@/components/ui";
 import { TeamLogo } from "@/components/TeamLogo";
 
 /** Right-rail status for a week: final score, open slate, or nothing yet. */
@@ -170,12 +171,13 @@ export default function SchedulePage() {
   useStoreVersion();
   const hydrated = useHydrated();
 
-  // Pre-hydration: baked demo data only (matches the static HTML). After
-  // mount: the store overlays, so admin edits show up immediately.
-  const contests = hydrated ? effectiveContests() : CONTESTS;
+  // Area comes from the URL at call time, so nothing is read until hydration.
+  // In the live area every week starts as a draft: no chips, no W/L, every
+  // card says "Slate drops soon" until Mother Superior opens it.
+  const contests = hydrated ? effectiveContests() : [];
+  const results = hydrated ? allEffectiveResults() : [];
   const contestFor = (week: number) => contests.find((c) => c.week === week);
-  const resultsFor = (week: number) =>
-    hydrated ? effectiveResults(week) : RESULTS.find((r) => r.week === week);
+  const resultsFor = (week: number) => results.find((r) => r.week === week);
 
   return (
     <div>
@@ -184,32 +186,40 @@ export default function SchedulePage() {
         <Pill>All times Eastern</Pill>
       </div>
 
-      <div className="mt-6 space-y-3">
-        {ALL_WEEKS.map((week) => {
-          const contest = contestFor(week);
-          const results = resultsFor(week);
-          if (week === BYE_WEEK) {
-            return <ByeCard key={week} contest={contest} results={results} />;
-          }
-          const game = gameForWeek(week);
-          if (!game) return null;
-          return (
-            <GameCard
-              key={week}
-              game={game}
-              contest={contest}
-              results={results}
-            />
-          );
-        })}
-      </div>
+      {!hydrated ? (
+        <div className="mt-6">
+          <LoadingCard />
+        </div>
+      ) : (
+        <>
+          <div className="mt-6 space-y-3">
+            {ALL_WEEKS.map((week) => {
+              const contest = contestFor(week);
+              const weekResults = resultsFor(week);
+              if (week === BYE_WEEK) {
+                return <ByeCard key={week} contest={contest} results={weekResults} />;
+              }
+              const game = gameForWeek(week);
+              if (!game) return null;
+              return (
+                <GameCard
+                  key={week}
+                  game={game}
+                  contest={contest}
+                  results={weekResults}
+                />
+              );
+            })}
+          </div>
 
-      <Card className="mt-8 p-4 text-xs text-fog">
-        Schedule, venues, and team logos are sourced from the league. Kickoff
-        times can flex late in the season. When the league moves a game, the
-        slate moves with it, and Mother Superior does not send reminders.
-        Don&apos;t be an idiot.
-      </Card>
+          <Card className="mt-8 p-4 text-xs text-fog">
+            Schedule, venues, and team logos are sourced from the league. Kickoff
+            times can flex late in the season. When the league moves a game, the
+            slate moves with it, and Mother Superior does not send reminders.
+            Don&apos;t be an idiot.
+          </Card>
+        </>
+      )}
     </div>
   );
 }

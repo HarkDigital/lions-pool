@@ -9,7 +9,7 @@
 // ---------------------------------------------------------------------------
 
 import { useState, type ReactNode } from "react";
-import Link from "next/link";
+import { AreaLink as Link } from "@/components/AreaLink";
 import type {
   AnswerValue,
   Contest,

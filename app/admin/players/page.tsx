@@ -8,9 +8,8 @@
 
 import { useRef, useState } from "react";
 import { AdminGate } from "@/components/AdminGate";
-import { Btn, Card, SectionTitle } from "@/components/ui";
-import { PLAYERS } from "@/lib/demo-data";
-import { publicName, saveNickname, useHydrated, useStoreVersion } from "@/lib/store";
+import { Btn, Card, EmptyState, SectionTitle } from "@/components/ui";
+import { poolPlayers, publicName, saveNickname, useStoreVersion } from "@/lib/store";
 import type { Participant } from "@/lib/types";
 
 const INPUT =
@@ -76,13 +75,18 @@ function NicknameCell({ p }: { p: Participant }) {
 
 function PlayersInner() {
   useStoreVersion();
-  const hydrated = useHydrated();
+  // AdminGate guarantees hydration, so the area-aware roster is safe to read.
+  const players = poolPlayers();
 
-  if (!hydrated) {
+  if (players.length === 0) {
     return (
-      <Card className="p-10 text-center">
-        <div className="text-sm text-fog">Pulling the roster file…</div>
-      </Card>
+      <div className="space-y-6">
+        <SectionTitle kicker="Mother Superior's Office">Players &amp; Nicknames</SectionTitle>
+        <EmptyState title="No players yet">
+          Accounts arrive with the backend. Until then the roster file is an empty folder, which
+          is exactly how Mother Superior likes her paperwork.
+        </EmptyState>
+      </div>
     );
   }
 
@@ -108,7 +112,7 @@ function PlayersInner() {
               </tr>
             </thead>
             <tbody>
-              {PLAYERS.map((p) => (
+              {players.map((p) => (
                 <tr key={p.id} className="border-b border-edge last:border-0">
                   <td className="px-4 py-3 align-middle">
                     <span className="flex items-center gap-2.5 whitespace-nowrap">

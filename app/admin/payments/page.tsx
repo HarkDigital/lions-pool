@@ -3,16 +3,16 @@
 // ---------------------------------------------------------------------------
 // /admin/payments/ - season buy-in bookkeeping. One record per player via
 // paymentFor(); Mother Superior flips Paid/Unpaid, the timestamp is stamped
-// automatically, and an optional note persists on blur. The roster is fixed,
-// so there is never an empty state, only an unpaid one.
+// automatically, and an optional note persists on blur. The live roster is
+// empty until the backend lands, so the ledger explains itself instead of
+// rendering a bare table; with players present it is only ever paid or unpaid.
 // ---------------------------------------------------------------------------
 
 import { useState } from "react";
 import { AdminGate } from "@/components/AdminGate";
-import { Btn, Card, Pill, SectionTitle } from "@/components/ui";
-import { PLAYERS } from "@/lib/demo-data";
+import { Btn, Card, EmptyState, Pill, SectionTitle } from "@/components/ui";
 import { fmtDateTime } from "@/lib/format";
-import { paymentFor, publicName, savePayment, useHydrated, useStoreVersion } from "@/lib/store";
+import { paymentFor, poolPlayers, publicName, savePayment, useStoreVersion } from "@/lib/store";
 import type { Participant } from "@/lib/types";
 
 const NOTE_INPUT =
@@ -100,18 +100,23 @@ function PaymentRow({ p }: { p: Participant }) {
 
 function PaymentsInner() {
   useStoreVersion();
-  const hydrated = useHydrated();
+  // AdminGate guarantees hydration, so the area-aware roster is safe to read.
+  const players = poolPlayers();
 
-  if (!hydrated) {
+  if (players.length === 0) {
     return (
-      <Card className="p-10 text-center">
-        <div className="text-sm text-fog">Opening the ledger…</div>
-      </Card>
+      <div className="space-y-6">
+        <SectionTitle kicker="Mother Superior's Office">Payments</SectionTitle>
+        <EmptyState title="No players yet">
+          Accounts arrive with the backend. Nobody owes anything, which Mother Superior finds
+          suspicious but technically correct.
+        </EmptyState>
+      </div>
     );
   }
 
-  const paidCount = PLAYERS.filter((p) => paymentFor(p.id).paid).length;
-  const allIn = paidCount === PLAYERS.length;
+  const paidCount = players.filter((p) => paymentFor(p.id).paid).length;
+  const allIn = paidCount === players.length;
 
   return (
     <div className="space-y-6">
@@ -123,14 +128,14 @@ function PaymentsInner() {
             Season buy-in
           </div>
           <div className="display mt-1 text-3xl">
-            Paid {paidCount}/{PLAYERS.length}
+            Paid {paidCount}/{players.length}
           </div>
           <div className="mt-1 text-xs text-fog">
             Mother Superior does not chase money twice.
           </div>
         </div>
         <Pill tone={allIn ? "win" : "loss"}>
-          {allIn ? "All in" : `${PLAYERS.length - paidCount} outstanding`}
+          {allIn ? "All in" : `${players.length - paidCount} outstanding`}
         </Pill>
       </Card>
 
@@ -147,7 +152,7 @@ function PaymentsInner() {
               </tr>
             </thead>
             <tbody>
-              {PLAYERS.map((p) => (
+              {players.map((p) => (
                 <PaymentRow key={p.id} p={p} />
               ))}
             </tbody>

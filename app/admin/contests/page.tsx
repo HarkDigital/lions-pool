@@ -7,7 +7,7 @@
 // ---------------------------------------------------------------------------
 
 import { useEffect, useState, type ReactNode } from "react";
-import Link from "next/link";
+import { AreaLink } from "@/components/AreaLink";
 import type {
   Contest,
   ContestStatus,
@@ -19,12 +19,12 @@ import type {
   Question,
   SpreadQ,
 } from "@/lib/types";
-import { CONTESTS, CURRENT_WEEK } from "@/lib/demo-data";
 import {
+  currentWeek,
   effectiveContest,
   effectiveContests,
+  isDemoArea,
   saveContest,
-  useHydrated,
   useStoreVersion,
 } from "@/lib/store";
 import { gameForWeek } from "@/lib/schedule";
@@ -47,9 +47,13 @@ const KIND_LABEL: Record<Question["kind"], string> = {
   pickem: "Pick’em",
 };
 
-const DEFAULT_WEEK = CONTESTS.find((c) => c.status === "draft")?.week ?? CURRENT_WEEK;
-
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
+
+/** First unfinished (draft) week in the current area, else the live week.
+ *  Call-time only: the area comes from the URL, so never at module scope. */
+function defaultBuilderWeek(): number {
+  return effectiveContests().find((c) => c.status === "draft")?.week ?? currentWeek();
+}
 
 function isoToLocalInput(iso: string): string {
   const d = new Date(iso);
@@ -811,7 +815,9 @@ function WeekEditor({
         </Btn>
         {savedNote && (
           <span className="text-sm font-semibold text-win">
-            Saved to this browser (demo). Live version publishes to everyone.
+            {isDemoArea()
+              ? "Saved to this browser (demo). Live version publishes to everyone."
+              : "Saved to this browser. Publishing to the whole pool arrives with the backend."}
           </span>
         )}
       </div>
@@ -822,27 +828,27 @@ function WeekEditor({
 // --- Page --------------------------------------------------------------------
 
 function ContestBuilder() {
-  const hydrated = useHydrated();
+  // AdminGate only renders children after hydration, so the area-aware
+  // selectors are safe from the first render here.
   useStoreVersion();
-  const contests = hydrated ? effectiveContests() : CONTESTS;
+  const contests = effectiveContests();
 
-  const [selectedWeek, setSelectedWeek] = useState<number>(DEFAULT_WEEK);
+  const [selectedWeek, setSelectedWeek] = useState<number>(() => defaultBuilderWeek());
   const [draft, setDraft] = useState<Contest | null>(null);
   const [savedNote, setSavedNote] = useState(false);
 
   useEffect(() => {
-    if (!hydrated) return;
     const c = effectiveContest(selectedWeek);
     if (!c) {
       setDraft(null);
       return;
     }
-    // The draft mirrors the stored contest verbatim — a saved scoreBonuses:false
+    // The draft mirrors the stored contest verbatim: a saved scoreBonuses:false
     // stays false. The game-week default lives where contests are created
-    // (lib/demo-data.ts), not here.
+    // (the baked per-area data), not here.
     setDraft(clone(c));
     setSavedNote(false);
-  }, [hydrated, selectedWeek]);
+  }, [selectedWeek]);
 
   const handleSave = () => {
     if (!draft) return;
@@ -889,7 +895,7 @@ function ContestBuilder() {
 
         {/* Editor + preview */}
         <div className="min-w-0 space-y-6">
-          {hydrated && draft ? (
+          {draft ? (
             <>
               <WeekEditor
                 draft={draft}
@@ -906,9 +912,9 @@ function ContestBuilder() {
           <div className="rounded-xl border border-honolulu/40 bg-honolulu/5 p-4 text-sm text-fog">
             <span className="font-bold text-sky">Workflow:</span> build the slate here, flip it to
             open, and when the final whistle blows take the numbers to the{" "}
-            <Link href="/admin/grading/" className="text-sky underline">
+            <AreaLink href="/admin/grading/" className="text-sky underline">
               Grading Console
-            </Link>
+            </AreaLink>
             . The engine does the rest.
           </div>
         </div>

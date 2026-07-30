@@ -6,11 +6,11 @@
 // so she can stalk the whole office without touching the main nav.
 // ---------------------------------------------------------------------------
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { AreaLink, useAreaPrefix } from "./AreaLink";
 import { Card } from "./ui";
-import { useHydrated, useUser } from "@/lib/store";
+import { isDemoArea, useHydrated, useUser } from "@/lib/store";
 
 const ADMIN_LINKS = [
   { href: "/admin/", label: "Dashboard" },
@@ -27,6 +27,7 @@ export function AdminGate({ children }: { children: ReactNode }) {
   const hydrated = useHydrated();
   const user = useUser();
   const pathname = usePathname();
+  const prefix = useAreaPrefix();
 
   if (!hydrated) {
     return (
@@ -46,24 +47,27 @@ export function AdminGate({ children }: { children: ReactNode }) {
           consequences. Go back to your picks.
         </p>
         <div className="mt-6">
-          <Link
+          <AreaLink
             href="/login/"
             className="inline-flex items-center justify-center gap-2 rounded-lg border border-transparent bg-honolulu px-4 py-2 text-sm font-bold text-white shadow-[0_4px_20px_-6px_rgba(0,118,182,0.7)] transition hover:bg-honolulu-deep"
           >
-            Sign in as Mother Superior to see the demo admin
-          </Link>
+            {isDemoArea()
+              ? "Sign in as Mother Superior to see the demo admin"
+              : "Sign in as Mother Superior"}
+          </AreaLink>
         </div>
       </Card>
     );
   }
 
-  const isActive = (href: string) => normalize(pathname ?? "/") === normalize(href);
+  // Compare against the area-prefixed href so /admin/... and /demo/admin/... both match.
+  const isActive = (href: string) => normalize(pathname ?? "/") === normalize(`${prefix}${href}`);
 
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-center gap-1 rounded-xl border border-edge bg-panel p-1.5">
         {ADMIN_LINKS.map((l) => (
-          <Link
+          <AreaLink
             key={l.href}
             href={l.href}
             className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
@@ -73,7 +77,7 @@ export function AdminGate({ children }: { children: ReactNode }) {
             }`}
           >
             {l.label}
-          </Link>
+          </AreaLink>
         ))}
         <span className="ml-auto hidden pr-2 text-xs font-semibold uppercase tracking-[0.2em] text-gold/70 sm:inline">
           Mother Superior&apos;s Office

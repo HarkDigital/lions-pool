@@ -136,6 +136,16 @@ export function Btn({
   );
 }
 
+/** Neutral pre-hydration skeleton: the prerendered HTML must not commit to
+ * an area (live vs demo), so pages render this until useHydrated() flips. */
+export function LoadingCard({ label = "Loading the pool" }: { label?: string }) {
+  return (
+    <div className="rounded-xl border border-edge bg-panel p-10 text-center">
+      <div className="display text-2xl text-fog">{label}</div>
+    </div>
+  );
+}
+
 export function EmptyState({ title, children }: { title: string; children?: ReactNode }) {
   return (
     <div className="rounded-xl border border-dashed border-edge-2 p-10 text-center">

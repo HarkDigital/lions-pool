@@ -7,18 +7,19 @@
 // Everything is derived from the store; nothing is hand-entered.
 // ---------------------------------------------------------------------------
 
-import Link from "next/link";
 import { AdminGate } from "@/components/AdminGate";
+import { AreaLink } from "@/components/AreaLink";
 import { Card, Pill, SectionTitle } from "@/components/ui";
-import { CURRENT_WEEK, PLAYERS } from "@/lib/demo-data";
 import { fmtDateTime, fmtPts, ordinal } from "@/lib/format";
 import { computeStandings, type SeasonInput } from "@/lib/scoring";
 import {
+  currentWeek,
   effectiveContest,
   effectiveContests,
   effectiveResults,
   effectiveSubmissions,
   paymentFor,
+  poolPlayers,
   publicName,
   useStoreVersion,
 } from "@/lib/store";
@@ -65,29 +66,33 @@ function BonusChips({ row }: { row: StandingsRow }) {
 function Dashboard() {
   useStoreVersion();
 
+  // Rendered inside AdminGate, so the store is hydrated and the area-aware
+  // selectors are safe to read. Live starts with an empty roster.
+  const players = poolPlayers();
+  const hasPlayers = players.length > 0;
+  const week = currentWeek();
+
   const contests = effectiveContests();
   const gradedWeeks = contests
     .filter((c) => c.status === "graded" && effectiveResults(c.week) != null)
     .map((c) => c.week);
 
-  const playerIds = PLAYERS.map((p) => p.id);
-  const currentSubs = effectiveSubmissions(CURRENT_WEEK).filter((s) =>
-    playerIds.includes(s.userId),
-  );
-  const current = effectiveContest(CURRENT_WEEK);
+  const playerIds = players.map((p) => p.id);
+  const currentSubs = effectiveSubmissions(week).filter((s) => playerIds.includes(s.userId));
+  const current = effectiveContest(week);
 
-  const season: SeasonInput[] = gradedWeeks.map((week) => ({
-    contest: contests.find((c) => c.week === week)!,
-    results: effectiveResults(week)!,
-    subs: effectiveSubmissions(week),
+  const season: SeasonInput[] = gradedWeeks.map((w) => ({
+    contest: contests.find((c) => c.week === w)!,
+    results: effectiveResults(w)!,
+    subs: effectiveSubmissions(w),
   }));
   const standings = computeStandings(playerIds, season);
   const rowFor = new Map(standings.map((r) => [r.userId, r]));
 
-  const ghosts = PLAYERS.filter((p) => !currentSubs.some((s) => s.userId === p.id));
-  const roster = [...PLAYERS].sort(
+  const ghosts = players.filter((p) => !currentSubs.some((s) => s.userId === p.id));
+  const roster = [...players].sort(
     (a, b) =>
-      (rowFor.get(a.id)?.rank ?? PLAYERS.length) - (rowFor.get(b.id)?.rank ?? PLAYERS.length),
+      (rowFor.get(a.id)?.rank ?? players.length) - (rowFor.get(b.id)?.rank ?? players.length),
   );
 
   return (
@@ -97,13 +102,23 @@ function Dashboard() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Players"
-          value={String(PLAYERS.length)}
-          sub="Plus Mother Superior, who does not lose"
+          value={String(players.length)}
+          sub={
+            hasPlayers
+              ? "Plus Mother Superior, who does not lose"
+              : "No players yet. Accounts arrive with the backend."
+          }
         />
         <StatCard
-          label={`Week ${CURRENT_WEEK} picks in`}
-          value={`${currentSubs.length}/${PLAYERS.length}`}
-          sub={ghosts.length > 0 ? `${ghosts.length} still missing` : "A full inbox. Finally."}
+          label={`Week ${week} picks in`}
+          value={hasPlayers ? `${currentSubs.length}/${players.length}` : "0"}
+          sub={
+            !hasPlayers
+              ? "Nobody to chase. For now."
+              : ghosts.length > 0
+                ? `${ghosts.length} still missing`
+                : "A full inbox. Finally."
+          }
         />
         <StatCard
           label="Weeks graded"
@@ -124,11 +139,20 @@ function Dashboard() {
       <Card className="p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="display text-2xl">Still ghosting Mother Superior</h3>
-          <Pill tone={ghosts.length > 0 ? "loss" : "win"}>
-            {ghosts.length > 0 ? `${ghosts.length} missing` : "All in"}
+          <Pill tone={!hasPlayers ? "default" : ghosts.length > 0 ? "loss" : "win"}>
+            {!hasPlayers
+              ? "Nobody to ghost"
+              : ghosts.length > 0
+                ? `${ghosts.length} missing`
+                : "All in"}
           </Pill>
         </div>
-        {ghosts.length > 0 ? (
+        {!hasPlayers ? (
+          <p className="mt-4 text-sm text-fog">
+            No players yet. Accounts arrive with the backend. Mother Superior cannot be ghosted
+            by people who do not exist, and she considers that a personal best.
+          </p>
+        ) : ghosts.length > 0 ? (
           <>
             <div className="mt-4 flex flex-wrap gap-2">
               {ghosts.map((p) => (
@@ -167,6 +191,15 @@ function Dashboard() {
             this office.
           </p>
         </div>
+        {!hasPlayers ? (
+          <div className="p-10 text-center">
+            <div className="display text-2xl text-fog">No players yet</div>
+            <p className="mt-2 text-sm text-fog">
+              Accounts arrive with the backend. The standings will compute themselves the moment
+              there is someone to rank.
+            </p>
+          </div>
+        ) : (
         <div className="table-scroll">
           <table className="w-full text-left text-sm">
             <thead>
@@ -210,19 +243,19 @@ function Dashboard() {
                     </td>
                     <td className="px-4 py-3">{row ? <BonusChips row={row} /> : "-"}</td>
                     <td className="px-4 py-3">
-                      <Link href="/admin/payments/" className="inline-flex">
+                      <AreaLink href="/admin/payments/" className="inline-flex">
                         <Pill tone={payment.paid ? "win" : "loss"}>
                           {payment.paid ? "Paid" : "Unpaid"}
                         </Pill>
-                      </Link>
+                      </AreaLink>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <Link
+                      <AreaLink
                         href="/admin/submissions/"
                         className="whitespace-nowrap text-xs font-bold text-sky hover:underline"
                       >
                         View picks →
-                      </Link>
+                      </AreaLink>
                     </td>
                   </tr>
                 );
@@ -230,6 +263,7 @@ function Dashboard() {
             </tbody>
           </table>
         </div>
+        )}
       </Card>
     </div>
   );

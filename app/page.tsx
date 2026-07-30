@@ -5,22 +5,16 @@
 // blurb, the slate board, the pick form, who's already in, and a top-3 recap.
 // ---------------------------------------------------------------------------
 
-import Link from "next/link";
-import type { Contest, ContestStatus, Question } from "@/lib/types";
+import { AreaLink as Link } from "@/components/AreaLink";
+import type { ContestStatus, Question } from "@/lib/types";
 import {
-  CONTESTS,
-  CURRENT_WEEK,
-  PLAYERS,
-  contestForWeek,
-  participant,
-  resultsForWeek,
-  submissionsForWeek,
-} from "@/lib/demo-data";
-import {
+  currentWeek,
   effectiveContest,
   effectiveContests,
   effectiveResults,
   effectiveSubmissions,
+  poolParticipant,
+  poolPlayers,
   publicName,
   useHydrated,
   useStoreVersion,
@@ -29,7 +23,15 @@ import { gameForWeek } from "@/lib/schedule";
 import { teamInfo } from "@/lib/teams";
 import { computeStandings, type SeasonInput } from "@/lib/scoring";
 import { fmtDateTime, fmtGameDay, fmtKickoff, fmtPts } from "@/lib/format";
-import { Card, EmptyState, Pill, PointsChip, STATUS_TONE, SectionTitle } from "@/components/ui";
+import {
+  Card,
+  EmptyState,
+  LoadingCard,
+  Pill,
+  PointsChip,
+  STATUS_TONE,
+  SectionTitle,
+} from "@/components/ui";
 import { TeamLogo } from "@/components/TeamLogo";
 import { PickForm } from "@/components/PickForm";
 
@@ -174,30 +176,28 @@ export default function HomePage() {
   const hydrated = useHydrated();
   useStoreVersion();
 
-  const contest: Contest | undefined = hydrated
-    ? effectiveContest(CURRENT_WEEK)
-    : contestForWeek(CURRENT_WEEK);
-  const subs = hydrated ? effectiveSubmissions(CURRENT_WEEK) : submissionsForWeek(CURRENT_WEEK);
+  // The prerender is area-agnostic: no data-bearing UI until the URL says
+  // which pool (live vs demo) this is.
+  if (!hydrated) return <LoadingCard />;
+
+  const week = currentWeek();
+  const contest = effectiveContest(week);
+  const subs = effectiveSubmissions(week);
+  const players = poolPlayers();
 
   // Graded weeks are derived, never hardcoded.
-  const gradedWeeks: SeasonInput[] = (hydrated ? effectiveContests() : CONTESTS)
+  const gradedWeeks: SeasonInput[] = effectiveContests()
     .filter((c) => c.status === "graded")
     .flatMap((c) => {
-      const results = hydrated ? effectiveResults(c.week) : resultsForWeek(c.week);
+      const results = effectiveResults(c.week);
       if (!results) return [];
-      return [
-        {
-          contest: c,
-          results,
-          subs: hydrated ? effectiveSubmissions(c.week) : submissionsForWeek(c.week),
-        },
-      ];
+      return [{ contest: c, results, subs: effectiveSubmissions(c.week) }];
     });
   const lastGraded = gradedWeeks.reduce((m, w) => Math.max(m, w.contest.week), 0);
   const top3 =
     gradedWeeks.length > 0
       ? computeStandings(
-          PLAYERS.map((p) => p.id),
+          players.map((p) => p.id),
           gradedWeeks,
         ).slice(0, 3)
       : [];
@@ -210,12 +210,13 @@ export default function HomePage() {
     );
   }
 
+  const isDraft = contest.status === "draft";
   const game = gameForWeek(contest.week);
   const away = game ? (game.home ? game.opponent : "DET") : null;
   const home = game ? (game.home ? "DET" : game.opponent) : null;
 
   const inOrder = [...subs].sort((a, b) => a.submittedAtUTC.localeCompare(b.submittedAtUTC));
-  const waitingOn = PLAYERS.filter((p) => !subs.some((s) => s.userId === p.id)).length;
+  const waitingOn = players.filter((p) => !subs.some((s) => s.userId === p.id)).length;
 
   return (
     <div className="space-y-10">
@@ -263,54 +264,66 @@ export default function HomePage() {
         </div>
       </Card>
 
-      {/* --- Mother Superior's word --------------------------------------- */}
-      {(contest.blurb || contest.motherSays) && (
-        <Card className="overflow-hidden">
-          {contest.blurb && (
-            <div className="px-6 py-5">
-              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-sky">
-                From the Commissioner
-              </div>
-              <p className="mt-2 text-sm leading-relaxed text-silver">{contest.blurb}</p>
-            </div>
-          )}
-          {contest.motherSays && (
-            <div className="flex flex-wrap items-center gap-3 border-t border-gold/30 bg-gold/5 px-6 py-3">
-              <span className="text-xs font-bold uppercase tracking-[0.2em] text-gold">
-                Mother Superior Says
-              </span>
-              <span className="display text-xl">{contest.motherSays}</span>
-            </div>
-          )}
+      {isDraft ? (
+        /* --- Draft week: the slate hasn't been posted yet ---------------- */
+        <Card className="p-6">
+          <div className="display text-2xl text-fog">
+            Mother Superior hasn&apos;t posted this slate yet
+          </div>
+          <p className="mt-2 text-sm text-fog">
+            The slate lands in your inbox when Mother Superior says it does.
+          </p>
         </Card>
+      ) : (
+        <>
+          {/* --- Mother Superior's word ------------------------------------ */}
+          {(contest.blurb || contest.motherSays) && (
+            <Card className="overflow-hidden">
+              {contest.blurb && (
+                <div className="px-6 py-5">
+                  <div className="text-xs font-semibold uppercase tracking-[0.2em] text-sky">
+                    From the Commissioner
+                  </div>
+                  <p className="mt-2 text-sm leading-relaxed text-silver">{contest.blurb}</p>
+                </div>
+              )}
+              {contest.motherSays && (
+                <div className="flex flex-wrap items-center gap-3 border-t border-gold/30 bg-gold/5 px-6 py-3">
+                  <span className="text-xs font-bold uppercase tracking-[0.2em] text-gold">
+                    Mother Superior Says
+                  </span>
+                  <span className="display text-xl">{contest.motherSays}</span>
+                </div>
+              )}
+            </Card>
+          )}
+
+          {/* --- The slate ------------------------------------------------- */}
+          <section>
+            <SectionTitle kicker="The points divide">This week&apos;s slate</SectionTitle>
+            <Card className="mt-4 divide-y divide-edge overflow-hidden">
+              {contest.questions.map((q) => (
+                <div key={q.id} className="p-5 sm:p-6">
+                  <BoardQuestion q={q} />
+                </div>
+              ))}
+            </Card>
+          </section>
+
+          {/* --- The pick form --------------------------------------------- */}
+          <PickForm contest={contest} />
+        </>
       )}
-
-      {/* --- The slate ---------------------------------------------------- */}
-      <section>
-        <SectionTitle kicker="The points divide">This week&apos;s slate</SectionTitle>
-        <Card className="mt-4 divide-y divide-edge overflow-hidden">
-          {contest.questions.map((q) => (
-            <div key={q.id} className="p-5 sm:p-6">
-              <BoardQuestion q={q} />
-            </div>
-          ))}
-        </Card>
-      </section>
-
-      {/* --- The pick form ------------------------------------------------ */}
-      <PickForm contest={contest} />
 
       {/* --- Who's already in --------------------------------------------- */}
       <Card className="p-5 sm:p-6">
         <h3 className="display text-2xl">Who&apos;s already in</h3>
         {inOrder.length === 0 ? (
-          <p className="mt-3 text-sm text-fog">
-            Nobody yet. The inbox is empty and Mother Superior is refreshing it.
-          </p>
+          <p className="mt-3 text-sm text-fog">Nobody&apos;s in yet.</p>
         ) : (
           <div className="mt-4 flex flex-wrap gap-2">
             {inOrder.map((s) => {
-              const p = participant(s.userId);
+              const p = poolParticipant(s.userId);
               if (!p) return null;
               return (
                 <span
@@ -321,17 +334,19 @@ export default function HomePage() {
                     className="inline-block h-2.5 w-2.5 rounded-full"
                     style={{ background: p.avatarColor }}
                   />
-                  {hydrated ? publicName(p) : p.nickname}
+                  {publicName(p)}
                 </span>
               );
             })}
           </div>
         )}
-        <p className="mt-3 text-sm text-fog">
-          {waitingOn === 0
-            ? "Everybody's in before kickoff. Mother Superior is almost proud."
-            : `Waiting on ${waitingOn} more. Mother Superior sees you.`}
-        </p>
+        {players.length > 0 && (
+          <p className="mt-3 text-sm text-fog">
+            {waitingOn === 0
+              ? "Everybody's in before kickoff. Mother Superior is almost proud."
+              : `Waiting on ${waitingOn} more. Mother Superior sees you.`}
+          </p>
+        )}
       </Card>
 
       {/* --- Top-3 recap --------------------------------------------------- */}
@@ -348,7 +363,7 @@ export default function HomePage() {
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             {top3.map((row) => {
-              const p = participant(row.userId);
+              const p = poolParticipant(row.userId);
               if (!p) return null;
               return (
                 <Link
@@ -363,7 +378,7 @@ export default function HomePage() {
                       style={{ background: p.avatarColor }}
                     />
                     <span className="truncate text-sm font-bold text-silver">
-                      {hydrated ? publicName(p) : p.nickname}
+                      {publicName(p)}
                     </span>
                   </span>
                   <span className="display text-2xl">{fmtPts(row.total)}</span>

@@ -1,34 +1,100 @@
 "use client";
 
 // ---------------------------------------------------------------------------
-// Demo persistence layer. In production this is replaced by Clerk (identity)
-// and Postgres (picks / contests / results); the page components won't care.
+// Persistence layer with two areas:
 //
-// localStorage keys:
-//   lionspool.user          -> participant id the visitor is "signed in" as
-//   lionspool.subs          -> Submission[] created in this browser
-//   lionspool.contests      -> Contest[] created/edited in the admin builder
-//   lionspool.results       -> WeekResults[] entered in admin grading
+//   LIVE  (site root)  — the actual 2026 season. Starts empty: drafted
+//                        contests, no players, no picks. Browser-local until
+//                        the backend lands; fetch()/auth slot in here.
+//   DEMO  (/demo/...)  — the frozen Oct-1 simulation with the fictional
+//                        roster, sample picks, and graded weeks.
+//
+// The area is derived from the URL at call time, and each area gets its own
+// localStorage keyspace, so nothing leaks between them. IMPORTANT hydration
+// rule: the prerendered HTML is area-agnostic — pages must render a neutral
+// skeleton until useHydrated() flips, then read these selectors.
 // ---------------------------------------------------------------------------
 
 import { useSyncExternalStore } from "react";
 import type { Contest, Participant, PaymentRecord, Submission, WeekResults } from "./types";
 import {
   CONTESTS,
+  CURRENT_WEEK,
   DEMO_NOW,
+  EVERYONE,
+  PLAYERS,
   RESULTS,
   SUBMISSIONS,
-  participant,
 } from "./demo-data";
+import { LIVE_CONTESTS, LIVE_EVERYONE, LIVE_PLAYERS } from "./live-data";
 
-const KEYS = {
-  user: "lionspool.user",
-  subs: "lionspool.subs",
-  contests: "lionspool.contests",
-  results: "lionspool.results",
-  nicknames: "lionspool.nicknames",
-  payments: "lionspool.payments",
-} as const;
+// --- Area / mode -------------------------------------------------------------
+
+export type PoolMode = "live" | "demo";
+
+/** "demo" anywhere under /demo/, "live" everywhere else (and during SSR). */
+export function poolMode(): PoolMode {
+  if (typeof window === "undefined") return "live";
+  // basePath-safe: GH Pages serves under /<repo>/, so check for the segment.
+  return /(^|\/)demo(\/|$)/.test(window.location.pathname) ? "demo" : "live";
+}
+
+export function isDemoArea(): boolean {
+  return poolMode() === "demo";
+}
+
+/** The clock the pool runs on: frozen for the demo, real for the season. */
+export function nowMs(): number {
+  return isDemoArea() ? Date.parse(DEMO_NOW) : Date.now();
+}
+
+/** Area-scoped storage key. */
+function k(name: string): string {
+  return `lionspool.${poolMode()}.${name}`;
+}
+
+const KEY_NAMES = ["user", "subs", "contests", "results", "nicknames", "payments"] as const;
+
+// --- Baked data per area -----------------------------------------------------
+
+export function bakedContests(): Contest[] {
+  return isDemoArea() ? CONTESTS : LIVE_CONTESTS;
+}
+
+function bakedSubs(): Submission[] {
+  return isDemoArea() ? SUBMISSIONS : [];
+}
+
+function bakedResults(): WeekResults[] {
+  return isDemoArea() ? RESULTS : [];
+}
+
+/** The playing roster for the current area (live: empty until the backend). */
+export function poolPlayers(): Participant[] {
+  return isDemoArea() ? PLAYERS : LIVE_PLAYERS;
+}
+
+/** Roster including the Commissioner. */
+export function poolEveryone(): Participant[] {
+  return isDemoArea() ? EVERYONE : LIVE_EVERYONE;
+}
+
+export function poolParticipant(id: string): Participant | undefined {
+  return poolEveryone().find((p) => p.id === id);
+}
+
+/**
+ * The week the pool is currently pointed at: frozen Week 4 in the demo; in
+ * live mode, the first week whose lock hasn't passed (season over -> 18).
+ */
+export function currentWeek(): number {
+  if (isDemoArea()) return CURRENT_WEEK;
+  const now = nowMs();
+  const upcoming = effectiveContests().find((c) => now < Date.parse(c.lockAtUTC));
+  return upcoming?.week ?? 18;
+}
+
+// --- Plumbing ---------------------------------------------------------------
 
 const listeners = new Set<() => void>();
 let version = 0;
@@ -76,9 +142,8 @@ export function useStoreVersion(): number {
 
 /**
  * False during SSR/static render and the hydration pass, true after mount.
- * Pages must render baked demo data until this flips, then switch to the
- * effective* readers — that keeps server HTML and first client render
- * identical (no hydration mismatch).
+ * Pages must render a neutral, area-agnostic skeleton until this flips —
+ * the area comes from the URL, which the prerender doesn't know.
  */
 export function useHydrated(): boolean {
   return useSyncExternalStore(
@@ -91,16 +156,16 @@ export function useHydrated(): boolean {
 // --- Identity ---------------------------------------------------------------
 
 export function getUserId(): string | null {
-  return readJSON<string | null>(KEYS.user, null);
+  return readJSON<string | null>(k("user"), null);
 }
 
 export function signIn(id: string) {
-  if (!participant(id)) return;
-  writeJSON(KEYS.user, id);
+  if (!poolParticipant(id)) return;
+  writeJSON(k("user"), id);
 }
 
 export function signOut() {
-  window.localStorage.removeItem(KEYS.user);
+  window.localStorage.removeItem(k("user"));
   emit();
 }
 
@@ -111,31 +176,31 @@ export function useUserId(): string | null {
 export function useUser() {
   useStoreVersion();
   const id = useUserId();
-  return id ? (participant(id) ?? null) : null;
+  return id ? (poolParticipant(id) ?? null) : null;
 }
 
 // --- Submissions ------------------------------------------------------------
 
 function localSubs(): Submission[] {
-  return readJSON<Submission[]>(KEYS.subs, []);
+  return readJSON<Submission[]>(k("subs"), []);
 }
 
 /**
- * Players only. Mother doesn't pick — an admin row (stale localStorage, or
- * any future write path) must never reach the grading engine, where a stray
- * scorePick would corrupt Closest-To/Exacto for the whole field.
+ * Players only. Mother Superior doesn't pick — an admin row (stale storage,
+ * or any future write path) must never reach the grading engine, where a
+ * stray scorePick would corrupt Closest-To/Exacto for the whole field.
  */
 export function playerSubmissions(subs: Submission[]): Submission[] {
-  return subs.filter((s) => !participant(s.userId)?.isAdmin);
+  return subs.filter((s) => !poolParticipant(s.userId)?.isAdmin);
 }
 
 /**
- * Baked demo submissions + anything saved in this browser. A local pick for
- * the same user+week replaces the baked one.
+ * Baked submissions + anything saved in this browser. A local pick for the
+ * same user+week replaces the baked one.
  */
 export function effectiveSubmissions(week: number): Submission[] {
   const local = localSubs().filter((s) => s.week === week);
-  const baked = SUBMISSIONS.filter(
+  const baked = bakedSubs().filter(
     (s) => s.week === week && !local.some((l) => l.userId === s.userId),
   );
   return playerSubmissions([...baked, ...local]);
@@ -147,26 +212,25 @@ export function mySubmission(week: number, userId: string): Submission | undefin
 
 export function saveSubmission(sub: Submission) {
   const rest = localSubs().filter((s) => !(s.week === sub.week && s.userId === sub.userId));
-  writeJSON(KEYS.subs, [...rest, sub]);
+  writeJSON(k("subs"), [...rest, sub]);
 }
 
 // --- Contests (admin builder overlay) ---------------------------------------
 
 /**
  * The lock time is authoritative, not decoration: in by a minute you're in,
- * late by a minute you lost your pick. Date.parse, NOT string comparison —
- * DEMO_NOW carries seconds while lockAtUTC values omit them, so lexicographic
- * order lies at the boundary. In production the same predicate runs
- * server-side against the real clock.
+ * late by a minute you lost your pick. Frozen clock in the demo, real clock
+ * for the season; in production the same predicate runs server-side.
  */
 export function isContestOpen(c: Contest): boolean {
-  return c.status === "open" && Date.parse(DEMO_NOW) < Date.parse(c.lockAtUTC);
+  return c.status === "open" && nowMs() < Date.parse(c.lockAtUTC);
 }
 
 export function effectiveContests(): Contest[] {
-  const local = readJSON<Contest[]>(KEYS.contests, []);
-  const merged = CONTESTS.map((c) => local.find((l) => l.week === c.week) ?? c);
-  const extra = local.filter((l) => !CONTESTS.some((c) => c.week === l.week));
+  const local = readJSON<Contest[]>(k("contests"), []);
+  const baked = bakedContests();
+  const merged = baked.map((c) => local.find((l) => l.week === c.week) ?? c);
+  const extra = local.filter((l) => !baked.some((c) => c.week === l.week));
   return [...merged, ...extra].sort((a, b) => a.week - b.week);
 }
 
@@ -175,28 +239,28 @@ export function effectiveContest(week: number): Contest | undefined {
 }
 
 export function saveContest(contest: Contest) {
-  const local = readJSON<Contest[]>(KEYS.contests, []);
+  const local = readJSON<Contest[]>(k("contests"), []);
   const rest = local.filter((c) => c.week !== contest.week);
-  writeJSON(KEYS.contests, [...rest, contest]);
+  writeJSON(k("contests"), [...rest, contest]);
 }
 
 // --- Results (admin grading overlay) ----------------------------------------
 
 export function effectiveResults(week: number): WeekResults | undefined {
-  const local = readJSON<WeekResults[]>(KEYS.results, []);
-  return local.find((r) => r.week === week) ?? RESULTS.find((r) => r.week === week);
+  const local = readJSON<WeekResults[]>(k("results"), []);
+  return local.find((r) => r.week === week) ?? bakedResults().find((r) => r.week === week);
 }
 
 export function allEffectiveResults(): WeekResults[] {
-  const local = readJSON<WeekResults[]>(KEYS.results, []);
-  const baked = RESULTS.filter((r) => !local.some((l) => l.week === r.week));
+  const local = readJSON<WeekResults[]>(k("results"), []);
+  const baked = bakedResults().filter((r) => !local.some((l) => l.week === r.week));
   return [...baked, ...local].sort((a, b) => a.week - b.week);
 }
 
 export function saveResults(results: WeekResults) {
-  const local = readJSON<WeekResults[]>(KEYS.results, []);
+  const local = readJSON<WeekResults[]>(k("results"), []);
   const rest = local.filter((r) => r.week !== results.week);
-  writeJSON(KEYS.results, [...rest, results]);
+  writeJSON(k("results"), [...rest, results]);
 }
 
 // --- Nicknames (Commissioner-set, admin overlay) -----------------------------
@@ -206,30 +270,33 @@ export function saveResults(results: WeekResults) {
  * admin wing; players cannot set or change their own nickname.
  */
 export function publicName(p: Participant): string {
-  const overlay = readJSON<Record<string, string>>(KEYS.nicknames, {});
+  const overlay = readJSON<Record<string, string>>(k("nicknames"), {});
   return overlay[p.id]?.trim() || p.nickname;
 }
 
 export function saveNickname(userId: string, nickname: string) {
-  const overlay = readJSON<Record<string, string>>(KEYS.nicknames, {});
-  writeJSON(KEYS.nicknames, { ...overlay, [userId]: nickname });
+  const overlay = readJSON<Record<string, string>>(k("nicknames"), {});
+  writeJSON(k("nicknames"), { ...overlay, [userId]: nickname });
 }
 
 // --- Payments (Commissioner bookkeeping) -------------------------------------
 
 export function paymentFor(userId: string): PaymentRecord {
-  const local = readJSON<PaymentRecord[]>(KEYS.payments, []);
+  const local = readJSON<PaymentRecord[]>(k("payments"), []);
   return local.find((r) => r.userId === userId) ?? { userId, paid: false };
 }
 
 export function savePayment(record: PaymentRecord) {
-  const local = readJSON<PaymentRecord[]>(KEYS.payments, []);
+  const local = readJSON<PaymentRecord[]>(k("payments"), []);
   const rest = local.filter((r) => r.userId !== record.userId);
-  writeJSON(KEYS.payments, [...rest, record]);
+  writeJSON(k("payments"), [...rest, record]);
 }
 
-/** Wipe every demo overlay and start clean. */
+/** Wipe the CURRENT area's overlays (plus any legacy unprefixed keys). */
 export function resetDemo() {
-  Object.values(KEYS).forEach((k) => window.localStorage.removeItem(k));
+  KEY_NAMES.forEach((n) => {
+    window.localStorage.removeItem(k(n));
+    window.localStorage.removeItem(`lionspool.${n}`); // pre-split legacy keys
+  });
   emit();
 }

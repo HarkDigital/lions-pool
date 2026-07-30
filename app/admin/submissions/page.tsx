@@ -10,15 +10,16 @@ import { Fragment, useState } from "react";
 import { AdminGate } from "@/components/AdminGate";
 import { TeamLogo } from "@/components/TeamLogo";
 import { Card, EmptyState, Pill, STATUS_DOT, STATUS_TONE, SectionTitle } from "@/components/ui";
-import { CURRENT_WEEK, participant } from "@/lib/demo-data";
 import { fmtDateTime, fmtPts, fmtScore, signedPts } from "@/lib/format";
 import { ALL_WEEKS } from "@/lib/schedule";
 import { gradeWeek } from "@/lib/scoring";
 import { teamInfo } from "@/lib/teams";
 import {
+  currentWeek,
   effectiveContests,
   effectiveResults,
   effectiveSubmissions,
+  poolParticipant,
   publicName,
   useStoreVersion,
 } from "@/lib/store";
@@ -111,7 +112,9 @@ const STATUS_META: Record<
 
 function SubmissionsInner() {
   useStoreVersion();
-  const [week, setWeek] = useState(CURRENT_WEEK);
+  // Lazy init: runs on mount inside AdminGate, after hydration, so the
+  // area-aware currentWeek() is safe here (never at module scope).
+  const [week, setWeek] = useState<number>(() => currentWeek());
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const contests = effectiveContests();
@@ -214,7 +217,7 @@ function SubmissionsInner() {
                   </thead>
                   <tbody>
                     {subs.map((s) => {
-                      const p = participant(s.userId);
+                      const p = poolParticipant(s.userId);
                       const g = grades?.get(s.userId);
                       const open = expanded === s.userId;
                       return (

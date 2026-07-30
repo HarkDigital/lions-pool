@@ -1,15 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { resetDemo } from "@/lib/store";
 
 /**
- * Sitewide demo-mode banner. The demo clock is frozen at Oct 1, 2026:
- * Weeks 1–3 graded, Week 4 open. Sign-in is simulated (Clerk replaces it
- * in the live version) and everything you save lives in this browser only.
+ * Demo-area banner (/demo/... only; the live site gets no banner). The demo
+ * clock is frozen at Oct 1, 2026: Weeks 1-3 graded, Week 4 open. Sign-in is
+ * simulated and everything you save lives in this browser only.
  */
 export function DemoNotice() {
+  const pathname = usePathname();
   const [confirming, setConfirming] = useState(false);
+  if (!/(^|\/)demo(\/|$)/.test(pathname)) return null;
   return (
     <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gold/40 bg-gold/10 px-4 py-2.5 text-sm text-gold">
       <span>

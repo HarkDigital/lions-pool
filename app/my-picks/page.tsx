@@ -6,10 +6,9 @@
 // graded.
 // ---------------------------------------------------------------------------
 
-import Link from "next/link";
-import { Card, EmptyState, Pill, SectionTitle } from "@/components/ui";
+import { AreaLink as Link } from "@/components/AreaLink";
+import { Card, EmptyState, LoadingCard, Pill, SectionTitle } from "@/components/ui";
 import { TeamLogo } from "@/components/TeamLogo";
-import { CONTESTS, PLAYERS, resultsForWeek, submissionsForWeek } from "@/lib/demo-data";
 import { fmtDateTime, fmtPts, fmtScore, ordinal, signedPts } from "@/lib/format";
 import { gameForWeek } from "@/lib/schedule";
 import { computeStandings, gradeWeek, type SeasonInput } from "@/lib/scoring";
@@ -17,6 +16,7 @@ import {
   effectiveContests,
   effectiveResults,
   effectiveSubmissions,
+  poolPlayers,
   publicName,
   useHydrated,
   useStoreVersion,
@@ -242,6 +242,10 @@ export default function MyPicksPage() {
   useStoreVersion();
   const user = useUser();
 
+  // The prerender is area-agnostic: no data-bearing UI until the URL says
+  // which pool (live vs demo) this is.
+  if (!hydrated) return <LoadingCard />;
+
   if (!user) {
     return (
       <div className="space-y-6">
@@ -273,11 +277,10 @@ export default function MyPicksPage() {
     );
   }
 
-  // Baked data until hydration, then the localStorage-aware readers.
-  const contests = hydrated ? effectiveContests() : CONTESTS;
-  const resultsFor = (week: number) => (hydrated ? effectiveResults(week) : resultsForWeek(week));
-  const subsFor = (week: number) =>
-    hydrated ? effectiveSubmissions(week) : submissionsForWeek(week);
+  const contests = effectiveContests();
+  const players = poolPlayers();
+  const resultsFor = (week: number) => effectiveResults(week);
+  const subsFor = (week: number) => effectiveSubmissions(week);
 
   // Graded weeks are derived, never hardcoded.
   const gradedInputs: SeasonInput[] = [];
@@ -289,7 +292,7 @@ export default function MyPicksPage() {
   }
 
   const standings = computeStandings(
-    PLAYERS.map((p) => p.id),
+    players.map((p) => p.id),
     gradedInputs,
   );
   const me = standings.find((r) => r.userId === user.id);
@@ -319,9 +322,7 @@ export default function MyPicksPage() {
                 className="inline-block h-3 w-3 rounded-full"
                 style={{ background: user.avatarColor }}
               />
-              <span className="display text-3xl">
-                {hydrated ? publicName(user) : user.nickname}
-              </span>
+              <span className="display text-3xl">{publicName(user)}</span>
             </div>
           </div>
           <div className="text-right">
@@ -342,7 +343,7 @@ export default function MyPicksPage() {
           </div>
           <div className="ml-auto flex items-baseline gap-2 text-sm">
             <span className="font-semibold text-silver">
-              {`Rank ${me ? ordinal(me.rank) : "TBD"} of ${PLAYERS.length} players`}
+              {`Rank ${me ? ordinal(me.rank) : "TBD"} of ${players.length} players`}
             </span>
             <span className="text-fog">·</span>
             <Link href="/nums/" className="font-semibold text-sky transition hover:text-chalk">

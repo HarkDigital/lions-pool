@@ -7,18 +7,19 @@
 // ---------------------------------------------------------------------------
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { AreaLink } from "@/components/AreaLink";
 import type { Contest, Question, TeamAbbr, UserWeekGrade, WeekResults } from "@/lib/types";
-import { CONTESTS, CURRENT_WEEK, RESULTS, participant } from "@/lib/demo-data";
 import {
+  currentWeek,
   effectiveContest,
   effectiveContests,
   effectiveResults,
   effectiveSubmissions,
+  isDemoArea,
+  poolParticipant,
   publicName,
   saveContest,
   saveResults,
-  useHydrated,
   useStoreVersion,
 } from "@/lib/store";
 import { gradeWeek } from "@/lib/scoring";
@@ -40,10 +41,16 @@ const choice = (active: boolean) =>
       : "border-edge bg-panel-2 text-fog hover:border-edge-2 hover:text-silver"
   }`;
 
-const DEFAULT_WEEK =
-  CONTESTS.find((c) => c.questions.length > 0 && c.status !== "graded")?.week ?? CURRENT_WEEK;
-
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
+
+/** First ungraded week that has a real slate, else the live week. Call-time
+ *  only: the area comes from the URL, so never at module scope. */
+function defaultGradingWeek(): number {
+  return (
+    effectiveContests().find((c) => c.questions.length > 0 && c.status !== "graded")?.week ??
+    currentWeek()
+  );
+}
 
 function qLabel(q: Question): string {
   switch (q.kind) {
@@ -136,7 +143,7 @@ function GradeTable({ grades }: { grades: UserWeekGrade[] }) {
         </thead>
         <tbody>
           {grades.map((g) => {
-            const p = participant(g.userId);
+            const p = poolParticipant(g.userId);
             return (
               <tr key={g.userId} className="border-t border-edge align-top">
                 <td className="whitespace-nowrap py-3 pr-4">
@@ -195,31 +202,28 @@ function GradeTable({ grades }: { grades: UserWeekGrade[] }) {
 }
 
 function GradingConsole() {
-  const hydrated = useHydrated();
+  // AdminGate only renders children after hydration, so the area-aware
+  // selectors are safe from the first render here.
   useStoreVersion();
 
-  const contests = (hydrated ? effectiveContests() : CONTESTS).filter(
-    (c) => c.questions.length > 0,
-  );
+  const contests = effectiveContests().filter((c) => c.questions.length > 0);
   const isGraded = (week: number, status: Contest["status"]) =>
-    status === "graded" &&
-    (hydrated ? effectiveResults(week) : RESULTS.find((r) => r.week === week)) != null;
+    status === "graded" && effectiveResults(week) != null;
 
-  const [selectedWeek, setSelectedWeek] = useState<number>(DEFAULT_WEEK);
-  const [draft, setDraft] = useState<WeekResults>(() => ({ week: DEFAULT_WEEK, values: {} }));
+  const [selectedWeek, setSelectedWeek] = useState<number>(() => defaultGradingWeek());
+  const [draft, setDraft] = useState<WeekResults>(() => ({ week: selectedWeek, values: {} }));
   const [preview, setPreview] = useState<UserWeekGrade[] | null>(null);
   const [savedNote, setSavedNote] = useState(false);
 
   useEffect(() => {
-    if (!hydrated) return;
     const existing = effectiveResults(selectedWeek);
     setDraft(existing ? clone(existing) : { week: selectedWeek, values: {} });
     setPreview(null);
     setSavedNote(false);
-  }, [hydrated, selectedWeek]);
+  }, [selectedWeek]);
 
-  const contest = hydrated ? effectiveContest(selectedWeek) : undefined;
-  const subs = hydrated && contest ? effectiveSubmissions(selectedWeek) : [];
+  const contest = effectiveContest(selectedWeek);
+  const subs = contest ? effectiveSubmissions(selectedWeek) : [];
   const game = gameForWeek(selectedWeek);
   const opp = game?.opponent;
 
@@ -308,7 +312,7 @@ function GradingConsole() {
         })}
       </div>
 
-      {!hydrated || !contest ? (
+      {!contest ? (
         <Card className="p-6 text-sm text-fog">Pulling up the week...</Card>
       ) : (
         <>
@@ -506,11 +510,11 @@ function GradingConsole() {
               </Btn>
               {savedNote && (
                 <span className="text-sm font-semibold text-win">
-                  Week {contest.week} is in the books. The Nums and My Picks updated instantly.
-                  Saved to this browser (demo).{" "}
-                  <Link href="/nums/" className="text-sky underline">
+                  Week {contest.week} is in the books. The Nums and My Picks updated instantly.{" "}
+                  {isDemoArea() ? "Saved to this browser (demo)." : "Saved to this browser."}{" "}
+                  <AreaLink href="/nums/" className="text-sky underline">
                     See the Nums
-                  </Link>
+                  </AreaLink>
                 </span>
               )}
             </div>
@@ -539,7 +543,10 @@ function GradingConsole() {
           <div className="rounded-xl border border-honolulu/40 bg-honolulu/5 p-4 text-sm text-fog">
             <span className="font-bold text-sky">Production note:</span> in the live version a
             nightly job pulls final scores from the league API and this page becomes a one-click
-            confirm. In the demo, the nightly job is you.
+            confirm.{" "}
+            {isDemoArea()
+              ? "In the demo, the nightly job is you."
+              : "Until that job lands with the backend, the nightly job is you."}
           </div>
         </>
       )}

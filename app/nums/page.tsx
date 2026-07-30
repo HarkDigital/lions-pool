@@ -8,7 +8,7 @@
 // ---------------------------------------------------------------------------
 
 import { Fragment, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import Link from "next/link";
+import { AreaLink as Link } from "@/components/AreaLink";
 import {
   computeStandings,
   gradeWeek,
@@ -17,51 +17,41 @@ import {
 } from "@/lib/scoring";
 import type {
   LineItem,
-  Participant,
   ScoreBonusType,
   StandingsRow,
   UserWeekGrade,
 } from "@/lib/types";
 import {
-  CONTESTS,
-  CURRENT_WEEK,
-  PLAYERS,
-  RESULTS,
-  participant,
-  submissionsForWeek,
-} from "@/lib/demo-data";
-import {
+  currentWeek,
+  effectiveContest,
   effectiveContests,
   effectiveResults,
   effectiveSubmissions,
+  isContestOpen,
+  poolParticipant,
+  poolPlayers,
   publicName,
   useHydrated,
   useStoreVersion,
 } from "@/lib/store";
 import { fmtPts, signedPts } from "@/lib/format";
 import { SeasonGraph, type GraphPlayer } from "@/components/SeasonGraph";
-import { Card, EmptyState, Pill, SectionTitle } from "@/components/ui";
+import { Card, EmptyState, LoadingCard, Pill, SectionTitle } from "@/components/ui";
 
 // --- Data assembly ----------------------------------------------------------
 
 /**
  * Graded weeks, derived dynamically: contest.status === "graded" AND results
- * exist. Pre-hydration we read only baked demo data so the first client
- * render matches the static HTML; after hydration the store overlays win.
+ * exist. Store selectors only — the page holds a LoadingCard until hydration,
+ * then everything comes from the current area's overlays.
  */
-function gradedWeeks(hydrated: boolean): SeasonInput[] {
-  const contests = hydrated ? effectiveContests() : CONTESTS;
+function gradedWeeks(): SeasonInput[] {
   const out: SeasonInput[] = [];
-  for (const contest of contests) {
+  for (const contest of effectiveContests()) {
     if (contest.status !== "graded") continue;
-    const results = hydrated
-      ? effectiveResults(contest.week)
-      : RESULTS.find((r) => r.week === contest.week);
+    const results = effectiveResults(contest.week);
     if (!results) continue;
-    const subs = hydrated
-      ? effectiveSubmissions(contest.week)
-      : submissionsForWeek(contest.week);
-    out.push({ contest, results, subs });
+    out.push({ contest, results, subs: effectiveSubmissions(contest.week) });
   }
   return out.sort((a, b) => a.contest.week - b.contest.week);
 }
@@ -309,83 +299,102 @@ export default function NumsPage() {
   const [tab, setTab] = useState<TabId>("table");
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
-  const { weeks, rows, grades, graphPlayers, progression, longshots, bonusHits, shame } =
-    useMemo(() => {
-      const weeks = gradedWeeks(hydrated);
-      const playerIds = PLAYERS.map((p) => p.id);
-      const rows = computeStandings(playerIds, weeks);
+  const data = useMemo(() => {
+    // Pre-hydration the area is unknown; the page renders a LoadingCard.
+    if (!hydrated) return null;
 
-      const nameOf = (p: Participant) => (hydrated ? publicName(p) : p.nickname);
+    const weeks = gradedWeeks();
+    const players = poolPlayers();
+    const playerIds = players.map((p) => p.id);
+    const rows = computeStandings(playerIds, weeks);
 
-      const grades = new Map<number, Map<string, UserWeekGrade>>();
-      for (const w of weeks) {
-        const m = new Map<string, UserWeekGrade>();
-        for (const g of gradeWeek(w.contest, w.results, w.subs)) m.set(g.userId, g);
-        grades.set(w.contest.week, m);
-      }
+    const grades = new Map<number, Map<string, UserWeekGrade>>();
+    for (const w of weeks) {
+      const m = new Map<string, UserWeekGrade>();
+      for (const g of gradeWeek(w.contest, w.results, w.subs)) m.set(g.userId, g);
+      grades.set(w.contest.week, m);
+    }
 
-      // Graph identity = entity colors, all players, nicknames only.
-      const graphPlayers: GraphPlayer[] = PLAYERS.map((p) => ({
-        id: p.id,
-        label: nameOf(p),
-        color: p.avatarColor,
-      }));
-      const progression = rankProgression(playerIds, weeks);
+    // Graph identity = entity colors, all players, nicknames only.
+    const graphPlayers: GraphPlayer[] = players.map((p) => ({
+      id: p.id,
+      label: publicName(p),
+      color: p.avatarColor,
+    }));
+    const progression = rankProgression(playerIds, weeks);
 
-      // Bonus ledgers: every score-bonus line item, by type, week then player.
-      const bonusHits: Record<Exclude<ScoreBonusType, "closest">, BonusHit[]> = {
-        kod: [],
-        exacto: [],
-        perfecto: [],
-      };
-      for (const w of weeks) {
-        for (const g of grades.get(w.contest.week)?.values() ?? []) {
-          const p = participant(g.userId);
-          if (!p) continue;
-          for (const item of g.items) {
-            if (
-              item.bonusType !== "kod" &&
-              item.bonusType !== "exacto" &&
-              item.bonusType !== "perfecto"
-            )
-              continue;
-            bonusHits[item.bonusType].push({
-              userId: g.userId,
-              name: nameOf(p),
-              color: p.avatarColor,
-              week: w.contest.week,
-              label: item.label,
-              points: item.points,
-            });
-          }
+    // Bonus ledgers: every score-bonus line item, by type, week then player.
+    const bonusHits: Record<Exclude<ScoreBonusType, "closest">, BonusHit[]> = {
+      kod: [],
+      exacto: [],
+      perfecto: [],
+    };
+    for (const w of weeks) {
+      for (const g of grades.get(w.contest.week)?.values() ?? []) {
+        const p = poolParticipant(g.userId);
+        if (!p) continue;
+        for (const item of g.items) {
+          if (
+            item.bonusType !== "kod" &&
+            item.bonusType !== "exacto" &&
+            item.bonusType !== "perfecto"
+          )
+            continue;
+          bonusHits[item.bonusType].push({
+            userId: g.userId,
+            name: publicName(p),
+            color: p.avatarColor,
+            week: w.contest.week,
+            label: item.label,
+            points: item.points,
+          });
         }
       }
-      for (const list of Object.values(bonusHits)) {
-        list.sort((a, b) => a.week - b.week || a.name.localeCompare(b.name));
-      }
+    }
+    for (const list of Object.values(bonusHits)) {
+      list.sort((a, b) => a.week - b.week || a.name.localeCompare(b.name));
+    }
 
-      // Shame: every player with no submission for a completed (graded) week.
-      const shame: { userId: string; name: string; color: string; week: number }[] = [];
-      for (const w of weeks) {
-        for (const p of PLAYERS) {
-          if (w.subs.some((s) => s.userId === p.id)) continue;
-          shame.push({ userId: p.id, name: nameOf(p), color: p.avatarColor, week: w.contest.week });
-        }
+    // Shame: every player with no submission for a completed (graded) week.
+    const shame: { userId: string; name: string; color: string; week: number }[] = [];
+    for (const w of weeks) {
+      for (const p of players) {
+        if (w.subs.some((s) => s.userId === p.id)) continue;
+        shame.push({ userId: p.id, name: publicName(p), color: p.avatarColor, week: w.contest.week });
       }
-      shame.sort((a, b) => a.week - b.week || a.name.localeCompare(b.name));
+    }
+    shame.sort((a, b) => a.week - b.week || a.name.localeCompare(b.name));
 
-      return {
-        weeks,
-        rows,
-        grades,
-        graphPlayers,
-        progression,
-        longshots: computeLongshots(weeks, rows),
-        bonusHits,
-        shame,
-      };
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [hydrated, version]);
+    return {
+      weeks,
+      players,
+      rows,
+      grades,
+      graphPlayers,
+      progression,
+      longshots: computeLongshots(weeks, rows),
+      bonusHits,
+      shame,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated, version]);
+
+  if (!data) {
+    return (
+      <div className="space-y-10">
+        <SectionTitle kicker="Season to date">Nums</SectionTitle>
+        <LoadingCard />
+      </div>
+    );
+  }
+
+  const { weeks, players, rows, grades, graphPlayers, progression, longshots, bonusHits, shame } =
+    data;
+
+  // No graded weeks OR no players (live starts empty): nothing to compute,
+  // so the table and movement tabs show their EmptyState instead. Also keeps
+  // rankProgression/labelY-style math away from empty arrays.
+  const nothingGraded = weeks.length === 0 || players.length === 0;
 
   const weekNums = weeks.map((w) => w.contest.week);
   const leaderTotal = rows[0]?.total ?? 0;
@@ -395,8 +404,11 @@ export default function NumsPage() {
 
   const toggle = (id: string) => setOpenId((cur) => (cur === id ? null : id));
 
-  const displayName = (p: Participant) => (hydrated ? publicName(p) : p.nickname);
-  const longshotLeader = longshots.leader ? participant(longshots.leader.userId) : null;
+  const longshotLeader = longshots.leader ? poolParticipant(longshots.leader.userId) : null;
+
+  const week = currentWeek();
+  const weekContest = effectiveContest(week);
+  const weekOpen = weekContest != null && isContestOpen(weekContest);
 
   const onTablistKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     const idx = TABS.findIndex((t) => t.id === tab);
@@ -454,7 +466,7 @@ export default function NumsPage() {
           aria-labelledby="nums-tab-table"
           className="space-y-10"
         >
-          {weeks.length === 0 ? (
+          {nothingGraded ? (
             <EmptyState title="Nothing graded yet">
               {
                 "Mother Superior grades when Mother Superior grades. Check back after the first final whistle."
@@ -465,7 +477,7 @@ export default function NumsPage() {
               {/* Podium */}
               <div className="grid gap-4 sm:grid-cols-3">
                 {rows.slice(0, 3).map((row) => {
-                  const p = participant(row.userId);
+                  const p = poolParticipant(row.userId);
                   if (!p) return null;
                   const back = leaderTotal - row.total;
                   const medal =
@@ -478,7 +490,7 @@ export default function NumsPage() {
                         </span>
                         <AvatarDot color={p.avatarColor} />
                       </div>
-                      <div className="mt-3 font-bold text-chalk">{displayName(p)}</div>
+                      <div className="mt-3 font-bold text-chalk">{publicName(p)}</div>
                       <div className="mt-3 flex items-baseline gap-2">
                         <span
                           className={`display text-3xl ${row.total < 0 ? "text-loss" : "text-chalk"}`}
@@ -533,7 +545,7 @@ export default function NumsPage() {
                       </thead>
                       <tbody>
                         {rows.map((row) => {
-                          const p = participant(row.userId);
+                          const p = poolParticipant(row.userId);
                           if (!p) return null;
                           const open = openId === row.userId;
                           return (
@@ -567,7 +579,7 @@ export default function NumsPage() {
                                   >
                                     <AvatarDot color={p.avatarColor} />
                                     <span className="font-semibold text-silver">
-                                      {displayName(p)}
+                                      {publicName(p)}
                                     </span>
                                     <span
                                       aria-hidden
@@ -681,7 +693,7 @@ export default function NumsPage() {
                     <AvatarDot color={longshotLeader.avatarColor} />
                     <span>
                       <span className="font-semibold text-silver">
-                        {displayName(longshotLeader)}
+                        {publicName(longshotLeader)}
                       </span>
                       <span className="text-fog">
                         {" "}
@@ -705,7 +717,7 @@ export default function NumsPage() {
 
       {tab === "movement" && (
         <div role="tabpanel" id="nums-panel-movement" aria-labelledby="nums-tab-movement">
-          {weeks.length === 0 ? (
+          {nothingGraded ? (
             <EmptyState title="Nothing graded yet">
               {"No weeks in the books, no movement to draw. Check back after the first final whistle."}
             </EmptyState>
@@ -759,14 +771,23 @@ export default function NumsPage() {
       {/* CTA */}
       <Card className="flex flex-col items-start justify-between gap-3 p-5 sm:flex-row sm:items-center">
         <p className="text-sm text-silver">
-          <span className="font-bold text-chalk">Week {CURRENT_WEEK} is open.</span>{" "}
-          {"Team. Win. Score. Don't be an idiot."}
+          {weekOpen ? (
+            <>
+              <span className="font-bold text-chalk">Week {week} is open.</span>{" "}
+              {"Team. Win. Score. Don't be an idiot."}
+            </>
+          ) : (
+            <>
+              <span className="font-bold text-chalk">Week {week} is next.</span>{" "}
+              {"The slate drops when Mother Superior says it drops."}
+            </>
+          )}
         </p>
         <Link
           href="/"
           className="rounded-lg bg-honolulu px-4 py-2 text-sm font-bold text-white transition hover:bg-honolulu-deep"
         >
-          Make your pick
+          {weekOpen ? "Make your pick" : "Go to the pool"}
         </Link>
       </Card>
     </div>
