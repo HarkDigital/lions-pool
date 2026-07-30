@@ -324,33 +324,31 @@ export default function MyPicksPage() {
               </span>
             </div>
           </div>
-          <div className="flex flex-wrap items-end gap-8">
-            <div className="text-right">
-              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-fog">
-                Points
-              </div>
-              <div className="display text-5xl">{fmtPts(me?.total ?? 0)}</div>
-            </div>
-            <div className="text-right">
-              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-fog">Rank</div>
-              <div className="display text-5xl">{me ? ordinal(me.rank) : "TBD"}</div>
-              <div className="text-xs text-fog">of {PLAYERS.length} players</div>
-              <Link
-                href="/nums/"
-                className="text-xs font-semibold text-sky transition hover:text-chalk"
-              >
-                See the Nums →
-              </Link>
-            </div>
+          <div className="text-right">
+            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-fog">Points</div>
+            <div className="display text-5xl">{fmtPts(me?.total ?? 0)}</div>
           </div>
         </div>
-        <div className="mt-5 flex flex-wrap gap-2 border-t border-edge pt-4">
-          <Pill tone={bonuses.closest > 0 ? "gold" : "default"}>Closest-To ×{bonuses.closest}</Pill>
-          <Pill tone={bonuses.exacto > 0 ? "gold" : "default"}>Exacto ×{bonuses.exacto}</Pill>
-          <Pill tone={bonuses.perfecto > 0 ? "gold" : "default"}>
-            Perfecto ×{bonuses.perfecto}
-          </Pill>
-          <Pill tone={bonuses.kod > 0 ? "loss" : "default"}>Kiss of Death ×{bonuses.kod}</Pill>
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-t border-edge pt-4">
+          <div className="flex flex-wrap gap-2">
+            <Pill tone={bonuses.closest > 0 ? "gold" : "default"}>
+              Closest-To ×{bonuses.closest}
+            </Pill>
+            <Pill tone={bonuses.exacto > 0 ? "gold" : "default"}>Exacto ×{bonuses.exacto}</Pill>
+            <Pill tone={bonuses.perfecto > 0 ? "gold" : "default"}>
+              Perfecto ×{bonuses.perfecto}
+            </Pill>
+            <Pill tone={bonuses.kod > 0 ? "loss" : "default"}>Kiss of Death ×{bonuses.kod}</Pill>
+          </div>
+          <div className="ml-auto flex items-baseline gap-2 text-sm">
+            <span className="font-semibold text-silver">
+              {`Rank ${me ? ordinal(me.rank) : "TBD"} of ${PLAYERS.length} players`}
+            </span>
+            <span className="text-fog">·</span>
+            <Link href="/nums/" className="font-semibold text-sky transition hover:text-chalk">
+              See the Nums →
+            </Link>
+          </div>
         </div>
       </Card>
 

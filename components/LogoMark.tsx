@@ -20,5 +20,5 @@ export function LogoMark({ height = 40, className = "" }: { height?: number; cla
 }
 
 export function LogoLockup({ compact = false }: { compact?: boolean }) {
-  return <LogoMark height={compact ? 44 : 72} />;
+  return <LogoMark height={compact ? 55 : 90} />;
 }

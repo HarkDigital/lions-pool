@@ -4,7 +4,7 @@ export function Footer() {
   return (
     <footer className="border-t border-edge py-10">
       <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-3 px-4 text-center sm:px-6">
-        <LogoMark height={34} />
+        <LogoMark height={42} />
         <p className="text-xs font-semibold uppercase tracking-[0.25em] text-fog">
           Team. Win. Score. Don&apos;t Be an Idiot.
         </p>

@@ -236,10 +236,11 @@ function WeekDetail({ week, grade }: { week: number; grade: UserWeekGrade | unde
 
 // --- Tabs -------------------------------------------------------------------
 
-type TabId = "table" | "kod" | "exacto" | "perfecto";
+type TabId = "table" | "movement" | "kod" | "exacto" | "perfecto";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "table", label: "The Table" },
+  { id: "movement", label: "Season Movement" },
   { id: "kod", label: "Kiss of Death" },
   { id: "exacto", label: "Exacto" },
   { id: "perfecto", label: "Perfecto" },
@@ -498,17 +499,6 @@ export default function NumsPage() {
                 })}
               </div>
 
-              {/* Season movement graph */}
-              <Card className="p-5">
-                <h3 className="display text-xl text-chalk">Season movement</h3>
-                <p className="mt-1 text-xs text-fog">
-                  {"Rank after each graded week. Hover a dot for the receipts."}
-                </p>
-                <div className="mt-4">
-                  <SeasonGraph players={graphPlayers} progression={progression} />
-                </div>
-              </Card>
-
               {/* Full table */}
               <div>
                 <p className="mb-3 text-xs text-fog">
@@ -709,6 +699,26 @@ export default function NumsPage() {
                 </Card>
               )}
             </>
+          )}
+        </div>
+      )}
+
+      {tab === "movement" && (
+        <div role="tabpanel" id="nums-panel-movement" aria-labelledby="nums-tab-movement">
+          {weeks.length === 0 ? (
+            <EmptyState title="Nothing graded yet">
+              {"No weeks in the books, no movement to draw. Check back after the first final whistle."}
+            </EmptyState>
+          ) : (
+            <Card className="p-5">
+              <h3 className="display text-xl text-chalk">Season movement</h3>
+              <p className="mt-1 text-xs text-fog">
+                {"Rank after each graded week. Hover a dot for the receipts."}
+              </p>
+              <div className="mt-4">
+                <SeasonGraph players={graphPlayers} progression={progression} />
+              </div>
+            </Card>
           )}
         </div>
       )}

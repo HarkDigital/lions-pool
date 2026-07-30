@@ -9,7 +9,7 @@
 // the chart is the table view.
 // ---------------------------------------------------------------------------
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { WeekRanks } from "@/lib/scoring";
 import { fmtPts, ordinal, signedPts } from "@/lib/format";
 
@@ -20,8 +20,11 @@ export interface GraphPlayer {
 }
 
 interface Tip {
-  x: number;
-  y: number;
+  /** Pixel position of the hovered dot inside the scroll wrapper. */
+  px: number;
+  py: number;
+  /** Render the panel to the left of the dot when it sits near the right edge. */
+  flip: boolean;
   label: string;
   week: number;
   rank: number;
@@ -44,8 +47,20 @@ export function SeasonGraph({
   progression: WeekRanks[];
 }) {
   const [tip, setTip] = useState<Tip | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
 
   if (progression.length === 0 || players.length === 0) return null;
+
+  /** Anchor the tooltip to the hovered dot's rendered position, scroll included. */
+  const showTip = (e: React.MouseEvent<SVGCircleElement>, data: Omit<Tip, "px" | "py" | "flip">) => {
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+    const dot = e.currentTarget.getBoundingClientRect();
+    const box = wrap.getBoundingClientRect();
+    const px = dot.left - box.left + dot.width / 2 + wrap.scrollLeft;
+    const py = dot.top - box.top + dot.height / 2 + wrap.scrollTop;
+    setTip({ ...data, px, py, flip: dot.left - box.left > wrap.clientWidth * 0.62 });
+  };
 
   const n = players.length;
   const weeks = progression.map((p) => p.week);
@@ -88,7 +103,7 @@ export function SeasonGraph({
   const labelY = (slot: number) => PAD_T + (n === 1 ? 0 : (slot * plotH) / (n - 1));
 
   return (
-    <div className="table-scroll relative">
+    <div ref={wrapRef} className="table-scroll relative">
       <svg
         viewBox={`0 0 ${width} ${height}`}
         width="100%"
@@ -160,10 +175,8 @@ export function SeasonGraph({
                       cy={cy}
                       r={13}
                       fill="transparent"
-                      onMouseEnter={() =>
-                        setTip({
-                          x: x(pt.wi),
-                          y: cy,
+                      onMouseEnter={(e) =>
+                        showTip(e, {
                           label: p.label,
                           week: pt.week,
                           rank: pt.rank,
@@ -208,10 +221,11 @@ export function SeasonGraph({
 
       {tip && (
         <div
-          className="pointer-events-none absolute z-10 rounded-lg border border-edge-2 bg-panel-2 px-3 py-2 text-xs shadow-lg"
+          className="pointer-events-none absolute z-10 whitespace-nowrap rounded-lg border border-edge-2 bg-panel-2 px-3 py-2 text-xs shadow-lg"
           style={{
-            left: `${((tip.x + 16) / width) * 100}%`,
-            top: `${(Math.max(0, tip.y - 14) / height) * 100}%`,
+            left: tip.flip ? tip.px - 14 : tip.px + 14,
+            top: tip.py,
+            transform: `translateY(-50%)${tip.flip ? " translateX(-100%)" : ""}`,
           }}
         >
           <div className="font-bold text-chalk">{tip.label}</div>
