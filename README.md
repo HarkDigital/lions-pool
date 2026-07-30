@@ -26,8 +26,14 @@ npm test       # grading-engine unit tests
 npm run build  # static export -> out/
 ```
 
-Pushing to `main` deploys via `.github/workflows/deploy.yml` (GitHub Pages;
-the basePath is derived automatically from the repository name).
+Pushing to `main` deploys the demo via `.github/workflows/deploy.yml`
+(GitHub Pages; the basePath is derived automatically from the repository
+name).
+
+Production lives at https://thelionspool.com on the VPS (nginx serving
+`/var/www/thelionspool`, cert via Let's Encrypt, alongside harkpicks.com).
+Deploy with `npm run deploy:vps` (uses the `lionspool-vps` SSH alias; builds
+with no basePath and rsyncs `out/`).
 
 ## Architecture
 
