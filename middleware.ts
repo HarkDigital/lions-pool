@@ -5,10 +5,9 @@ import { NextResponse } from "next/server";
 // screen and nothing else — live area, demo area, admin, all of it.
 const isPublicRoute = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)"]);
 
-// The LIVE admin wing is server-enforced for admin emails only. The demo's
-// admin (/demo/admin/...) stays open to any signed-in member: playing
-// Mother Superior is the point of the simulation.
-const isLiveAdminRoute = createRouteMatcher(["/admin(.*)"]);
+// Admin-only territory, server-enforced by email: the live admin wing AND
+// the entire demo simulation. Members see the season and nothing else.
+const isAdminOnlyRoute = createRouteMatcher(["/admin(.*)", "/demo(.*)"]);
 
 const ADMIN_EMAILS = (process.env.NEXT_PUBLIC_ADMIN_EMAILS ?? "mike@hark.digital")
   .split(",")
@@ -27,7 +26,7 @@ export default clerkMiddleware(
       url.searchParams.set("redirect_url", req.nextUrl.pathname);
       return NextResponse.redirect(url);
     }
-    if (isLiveAdminRoute(req)) {
+    if (isAdminOnlyRoute(req)) {
       const client = await clerkClient();
       const user = await client.users.getUser(userId);
       const emails = user.emailAddresses.map((e) => e.emailAddress.toLowerCase());

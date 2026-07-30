@@ -73,7 +73,7 @@ export function Nav() {
             >
               Exit Demo
             </Link>
-          ) : (
+          ) : user?.isAdmin ? (
             <Link
               href="/demo/"
               className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
@@ -84,7 +84,7 @@ export function Nav() {
             >
               Demo
             </Link>
-          )}
+          ) : null}
         </nav>
 
         <div className="flex items-center gap-2">
@@ -131,9 +131,11 @@ export function Nav() {
                 },
               ]
             : []),
-          inDemo
-            ? { href: "/", label: "Exit Demo", active: false }
-            : { href: "/demo/", label: "Demo", active: pathname.startsWith("/demo") },
+          ...(inDemo
+            ? [{ href: "/", label: "Exit Demo", active: false }]
+            : user?.isAdmin
+              ? [{ href: "/demo/", label: "Demo", active: pathname.startsWith("/demo") }]
+              : []),
         ].map((l) => (
           <Link
             key={l.href + l.label}
