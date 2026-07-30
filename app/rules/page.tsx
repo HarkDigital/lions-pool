@@ -25,11 +25,6 @@ export default function RulesPage() {
           the score will be. Everything below is detail. Read it once, carefully, so Mother
           Superior never has to explain it to you again.
         </p>
-        <div className="mt-5 flex flex-wrap gap-2">
-          <Pill tone="blue">Winner and score</Pill>
-          <Pill tone="gold">Bonuses for the bold</Pill>
-          <Pill tone="loss">Zero for the wrong</Pill>
-        </div>
       </div>
 
       {/* 1. The One Commandment ------------------------------------------- */}
@@ -127,13 +122,6 @@ export default function RulesPage() {
       {/* 3. Score Bonuses ------------------------------------------------- */}
       <section className="space-y-4">
         <SectionTitle kicker="Rule Three: The Crown Jewels">Score Bonuses</SectionTitle>
-        <p className="max-w-3xl text-sm leading-relaxed text-silver">
-          Your score pick is not decoration. Every Lions game, the numbers you submit are live
-          ammunition: four ways to swing your week without touching the moneyline. The form
-          sets your winner from the score you enter, automatically, so your pick can never
-          contradict itself.
-        </p>
-
         <Card>
           <div className="table-scroll">
             <table className="w-full min-w-[560px] text-left text-sm">
@@ -232,22 +220,6 @@ export default function RulesPage() {
             Saints&rsquo; 7: another. You did not nail a single number and you still bank two
             bonuses. That is the game within the game.
           </p>
-          <ul className="mt-5 space-y-2 border-t border-edge pt-4 text-sm leading-relaxed text-silver">
-            <li className="flex gap-2">
-              <span className="text-sky">&rarr;</span>
-              <span>
-                Picked the wrong winner? You can still cash score bonuses. Nailing a number pays
-                regardless of your moneyline sins.
-              </span>
-            </li>
-            <li className="flex gap-2">
-              <span className="text-sky">&rarr;</span>
-              <span>
-                Every qualifying player gets paid; bonuses are not a raffle. If four
-                people tie for closest, four people collect.
-              </span>
-            </li>
-          </ul>
         </Card>
       </section>
 
