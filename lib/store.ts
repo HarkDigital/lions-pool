@@ -209,11 +209,14 @@ export function useUser(): Participant | null {
   if (!isLoaded || !clerkUser) return null;
   const email = clerkUser.primaryEmailAddress?.emailAddress?.toLowerCase();
   if (email && ADMIN_EMAILS.includes(email)) return MOTHER;
+  // Provisional member: no Commissioner-assigned nickname yet (empty, not a
+  // fake one) — publicName() renders the placeholder, selfName() their own
+  // account name.
   return {
     id: clerkUser.id,
-    name: clerkUser.fullName ?? email ?? "Member",
+    name: clerkUser.fullName ?? clerkUser.firstName ?? email ?? "Member",
     email,
-    nickname: "Unassigned",
+    nickname: "",
     avatarColor: "#78838d",
   };
 }
@@ -318,11 +321,22 @@ export function saveResults(results: WeekResults) {
 
 /**
  * The ONLY name public pages may render. Real names and emails stay in the
- * admin wing; players cannot set or change their own nickname.
+ * admin wing; players cannot set or change their own nickname. Members
+ * without an assigned nickname show a neutral placeholder, never a name.
  */
 export function publicName(p: Participant): string {
   const overlay = readJSON<Record<string, string>>(k("nicknames"), {});
-  return overlay[p.id]?.trim() || p.nickname;
+  return overlay[p.id]?.trim() || p.nickname || "Awaiting nickname";
+}
+
+/**
+ * What a signed-in member sees for THEMSELVES (the nav pill): the assigned
+ * nickname once Mother Superior grants one, else their own account name.
+ * Showing you your own name is not a privacy leak.
+ */
+export function selfName(p: Participant): string {
+  const overlay = readJSON<Record<string, string>>(k("nicknames"), {});
+  return overlay[p.id]?.trim() || p.nickname || p.name;
 }
 
 export function saveNickname(userId: string, nickname: string) {

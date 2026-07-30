@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogoLockup } from "./LogoMark";
-import { publicName, useSignOut, useUser } from "@/lib/store";
+import { selfName, useSignOut, useUser } from "@/lib/store";
 
 const LINKS = [
   { href: "/", label: "This Week" },
@@ -92,13 +92,13 @@ export function Nav() {
             <>
               <span
                 className="hidden items-center gap-2 rounded-full border border-edge bg-panel px-3 py-1.5 text-xs font-bold text-silver sm:inline-flex"
-                title={publicName(user)}
+                title={selfName(user)}
               >
                 <span
                   className="inline-block h-2.5 w-2.5 rounded-full"
                   style={{ background: user.avatarColor }}
                 />
-                {publicName(user)}
+                {selfName(user)}
               </span>
               <button
                 onClick={doSignOut}
