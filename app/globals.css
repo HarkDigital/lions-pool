@@ -33,17 +33,19 @@
   --font-body: var(--font-barlow), system-ui, sans-serif;
 }
 
+/* The opaque canvas lives on <html> so the fixed aurora layer (a z-index:-10
+   child of <body>) is not painted over. <body> itself stays transparent. */
 html {
-  background: var(--color-pitch);
+  background:
+    radial-gradient(1100px 500px at 50% -10%, rgba(0, 118, 182, 0.14), transparent 70%),
+    var(--color-pitch);
   color-scheme: dark;
 }
 
 body {
   font-family: var(--font-body);
   color: var(--color-silver);
-  background:
-    radial-gradient(1100px 500px at 50% -10%, rgba(0, 118, 182, 0.16), transparent 70%),
-    var(--color-pitch);
+  background: transparent;
   min-height: 100dvh;
 }
 
@@ -113,12 +115,12 @@ body {
       #0076b6 46%
     );
     background-size: 200% 200%;
-    filter: blur(34px);
-    opacity: 0.32;
+    filter: blur(28px);
+    opacity: 0.5;
     transform: translateZ(0);
     animation: aurora 55s linear infinite;
-    mask-image: radial-gradient(ellipse 130% 85% at 50% -15%, black 12%, transparent 68%);
-    -webkit-mask-image: radial-gradient(ellipse 130% 85% at 50% -15%, black 12%, transparent 68%);
+    mask-image: radial-gradient(ellipse 135% 90% at 50% -10%, black 18%, transparent 72%);
+    -webkit-mask-image: radial-gradient(ellipse 135% 90% at 50% -10%, black 18%, transparent 72%);
   }
   @keyframes aurora {
     from {
