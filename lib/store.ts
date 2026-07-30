@@ -133,6 +133,52 @@ export function poolParticipant(id: string): Participant | undefined {
   return poolEveryone().find((p) => p.id === id);
 }
 
+// --- Live pool data (MariaDB via /api/pool) ---------------------------------
+// The live season's shared data lives in the database, fetched once per
+// session by <RosterSync/> (which also calls ensurePool) and cached here. The
+// effective*/save* readers below use this cache in live mode; demo mode is
+// untouched localStorage. Reads fall back to empty/baked so a failed fetch
+// degrades to an empty pool rather than a crash.
+
+interface LivePool {
+  contests: Contest[];
+  results: WeekResults[];
+  submissions: Submission[];
+  bonus: BonusValues;
+  payments: PaymentRecord[];
+  motherPicks: Submission[];
+}
+
+let livePool: LivePool | null = null;
+let poolFetched = false;
+
+export async function refreshPool(): Promise<void> {
+  try {
+    const res = await fetch("/api/pool", { cache: "no-store" });
+    if (!res.ok) return;
+    livePool = (await res.json()) as LivePool;
+    emit();
+  } catch {
+    /* offline: keep the cache as-is */
+  }
+}
+
+export function ensurePool(): void {
+  if (isDemoArea() || typeof window === "undefined" || poolFetched) return;
+  poolFetched = true;
+  void refreshPool();
+}
+
+function poolWrite(resource: string, data: unknown): void {
+  void fetch("/api/pool", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ resource, data }),
+  }).then((res) => {
+    if (res.ok) void refreshPool();
+  });
+}
+
 /**
  * The week the pool is currently pointed at: frozen Week 4 in the demo; in
  * live mode, the first week whose lock hasn't passed (season over -> 18).
@@ -286,6 +332,9 @@ export function playerSubmissions(subs: Submission[]): Submission[] {
  * same user+week replaces the baked one.
  */
 export function effectiveSubmissions(week: number): Submission[] {
+  if (!isDemoArea()) {
+    return playerSubmissions((livePool?.submissions ?? []).filter((s) => s.week === week));
+  }
   const local = localSubs().filter((s) => s.week === week);
   const baked = bakedSubs().filter(
     (s) => s.week === week && !local.some((l) => l.userId === s.userId),
@@ -298,6 +347,10 @@ export function mySubmission(week: number, userId: string): Submission | undefin
 }
 
 export function saveSubmission(sub: Submission) {
+  if (!isDemoArea()) {
+    poolWrite("submission", sub);
+    return;
+  }
   const rest = localSubs().filter((s) => !(s.week === sub.week && s.userId === sub.userId));
   writeJSON(k("subs"), [...rest, sub]);
 }
@@ -314,7 +367,7 @@ export function isContestOpen(c: Contest): boolean {
 }
 
 export function effectiveContests(): Contest[] {
-  const local = readJSON<Contest[]>(k("contests"), []);
+  const local = isDemoArea() ? readJSON<Contest[]>(k("contests"), []) : (livePool?.contests ?? []);
   const baked = bakedContests();
   const merged = baked.map((c) => local.find((l) => l.week === c.week) ?? c);
   const extra = local.filter((l) => !baked.some((c) => c.week === l.week));
@@ -326,6 +379,10 @@ export function effectiveContest(week: number): Contest | undefined {
 }
 
 export function saveContest(contest: Contest) {
+  if (!isDemoArea()) {
+    poolWrite("contest", contest);
+    return;
+  }
   const local = readJSON<Contest[]>(k("contests"), []);
   const rest = local.filter((c) => c.week !== contest.week);
   writeJSON(k("contests"), [...rest, contest]);
@@ -334,17 +391,23 @@ export function saveContest(contest: Contest) {
 // --- Results (admin grading overlay) ----------------------------------------
 
 export function effectiveResults(week: number): WeekResults | undefined {
+  if (!isDemoArea()) return (livePool?.results ?? []).find((r) => r.week === week);
   const local = readJSON<WeekResults[]>(k("results"), []);
   return local.find((r) => r.week === week) ?? bakedResults().find((r) => r.week === week);
 }
 
 export function allEffectiveResults(): WeekResults[] {
+  if (!isDemoArea()) return [...(livePool?.results ?? [])].sort((a, b) => a.week - b.week);
   const local = readJSON<WeekResults[]>(k("results"), []);
   const baked = bakedResults().filter((r) => !local.some((l) => l.week === r.week));
   return [...baked, ...local].sort((a, b) => a.week - b.week);
 }
 
 export function saveResults(results: WeekResults) {
+  if (!isDemoArea()) {
+    poolWrite("result", results);
+    return;
+  }
   const local = readJSON<WeekResults[]>(k("results"), []);
   const rest = local.filter((r) => r.week !== results.week);
   writeJSON(k("results"), [...rest, results]);
@@ -397,15 +460,21 @@ export function saveNickname(userId: string, nickname: string) {
  * "Mother Superior Says" strip that the pool reads on This Week.
  */
 export function mothersSubmission(week: number): Submission | undefined {
+  if (!isDemoArea()) return (livePool?.motherPicks ?? []).find((s) => s.week === week);
   const local = readJSON<Submission[]>(k("motherpicks"), []);
   return local.find((s) => s.week === week);
 }
 
 export function publishMothersLine(contest: Contest, sub: Submission, says: string) {
+  const updated = { ...contest, motherSays: says || undefined };
+  if (!isDemoArea()) {
+    poolWrite("motherPick", { sub, contest: updated });
+    return;
+  }
   const local = readJSON<Submission[]>(k("motherpicks"), []);
   const rest = local.filter((s) => s.week !== sub.week);
   writeJSON(k("motherpicks"), [...rest, sub]);
-  saveContest({ ...contest, motherSays: says || undefined });
+  saveContest(updated);
 }
 
 // --- Season scoring settings (Commissioner-set) ------------------------------
@@ -415,22 +484,33 @@ export function publishMothersLine(contest: Contest, sub: Submission, says: stri
  * into the engine, so a change re-scores all graded weeks immediately.
  */
 export function bonusValues(): BonusValues {
+  if (!isDemoArea()) return livePool?.bonus ?? DEFAULT_BONUS_VALUES;
   const saved = readJSON<Partial<BonusValues>>(k("settings"), {});
   return { ...DEFAULT_BONUS_VALUES, ...saved };
 }
 
 export function saveBonusValues(v: BonusValues) {
+  if (!isDemoArea()) {
+    poolWrite("settings", v);
+    return;
+  }
   writeJSON(k("settings"), v);
 }
 
 // --- Payments (Commissioner bookkeeping) -------------------------------------
 
 export function paymentFor(userId: string): PaymentRecord {
+  if (!isDemoArea())
+    return (livePool?.payments ?? []).find((r) => r.userId === userId) ?? { userId, paid: false };
   const local = readJSON<PaymentRecord[]>(k("payments"), []);
   return local.find((r) => r.userId === userId) ?? { userId, paid: false };
 }
 
 export function savePayment(record: PaymentRecord) {
+  if (!isDemoArea()) {
+    poolWrite("payment", record);
+    return;
+  }
   const local = readJSON<PaymentRecord[]>(k("payments"), []);
   const rest = local.filter((r) => r.userId !== record.userId);
   writeJSON(k("payments"), [...rest, record]);

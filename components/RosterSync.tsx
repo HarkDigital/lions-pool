@@ -6,12 +6,13 @@
 
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { ensureRoster } from "@/lib/store";
+import { ensurePool, ensureRoster } from "@/lib/store";
 
 export function RosterSync() {
   const pathname = usePathname();
   useEffect(() => {
     ensureRoster();
+    ensurePool();
   }, [pathname]);
   return null;
 }
