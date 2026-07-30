@@ -2,10 +2,12 @@
 
 // ---------------------------------------------------------------------------
 // "This Week": the home page. Hero for the open week, Mother Superior's
-// blurb, the slate board, the pick form, who's already in, and a top-3 recap.
+// announcement (expandable past 100 words), the slate board, the pick form,
+// and a top-3 recap.
 // ---------------------------------------------------------------------------
 
 import { AreaLink as Link } from "@/components/AreaLink";
+import { ExpandableText } from "@/components/ExpandableText";
 import type { ContestStatus, Question } from "@/lib/types";
 import {
 
@@ -121,7 +123,7 @@ function BoardQuestion({ q }: { q: Question }) {
           </div>
           {q.source !== "stat" && (
             <p className="mt-2 text-xs text-fog">
-              Your score pick decides your side automatically. Pick a score you believe in.
+              The score you set automatically decides your Over/Under pick.
             </p>
           )}
         </>
@@ -183,7 +185,6 @@ export default function HomePage() {
 
   const week = currentWeek();
   const contest = effectiveContest(week);
-  const subs = effectiveSubmissions(week);
   const players = poolPlayers();
 
   // Graded weeks are derived, never hardcoded.
@@ -217,8 +218,6 @@ export default function HomePage() {
   const away = game ? (game.home ? game.opponent : "DET") : null;
   const home = game ? (game.home ? "DET" : game.opponent) : null;
 
-  const inOrder = [...subs].sort((a, b) => a.submittedAtUTC.localeCompare(b.submittedAtUTC));
-  const waitingOn = players.filter((p) => !subs.some((s) => s.userId === p.id)).length;
 
   return (
     <div className="space-y-10">
@@ -286,7 +285,9 @@ export default function HomePage() {
                   <div className="text-xs font-semibold uppercase tracking-[0.2em] text-sky">
                     From the Commissioner
                   </div>
-                  <p className="mt-2 text-sm leading-relaxed text-silver">{contest.blurb}</p>
+                  <div className="mt-2">
+                    <ExpandableText text={contest.blurb} words={100} />
+                  </div>
                 </div>
               )}
               {contest.motherSays && (
@@ -316,40 +317,6 @@ export default function HomePage() {
           <PickForm contest={contest} />
         </>
       )}
-
-      {/* --- Who's already in --------------------------------------------- */}
-      <Card className="p-5 sm:p-6">
-        <h3 className="display text-2xl">Who&apos;s already in</h3>
-        {inOrder.length === 0 ? (
-          <p className="mt-3 text-sm text-fog">Nobody&apos;s in yet.</p>
-        ) : (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {inOrder.map((s) => {
-              const p = poolParticipant(s.userId);
-              if (!p) return null;
-              return (
-                <span
-                  key={s.userId}
-                  className="inline-flex items-center gap-2 rounded-full border border-edge bg-panel-2 px-3 py-1.5 text-xs font-bold text-silver"
-                >
-                  <span
-                    className="inline-block h-2.5 w-2.5 rounded-full"
-                    style={{ background: p.avatarColor }}
-                  />
-                  {publicName(p)}
-                </span>
-              );
-            })}
-          </div>
-        )}
-        {players.length > 0 && (
-          <p className="mt-3 text-sm text-fog">
-            {waitingOn === 0
-              ? "Everybody's in before kickoff. Mother Superior is almost proud."
-              : `Waiting on ${waitingOn} more. Mother Superior sees you.`}
-          </p>
-        )}
-      </Card>
 
       {/* --- Top-3 recap --------------------------------------------------- */}
       {top3.length > 0 && (

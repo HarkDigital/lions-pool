@@ -365,12 +365,18 @@ export function mothersPickFor(week: number): MothersPick | undefined {
   return local.find((r) => r.week === week);
 }
 
-export function saveMothersPick(pick: MothersPick, says: string) {
+export function saveMothersPick(pick: MothersPick, says: string, blurb?: string) {
   const local = readJSON<MothersPick[]>(k("motherpicks"), []);
   const rest = local.filter((r) => r.week !== pick.week);
   writeJSON(k("motherpicks"), [...rest, pick]);
   const contest = effectiveContest(pick.week);
-  if (contest) saveContest({ ...contest, motherSays: says || undefined });
+  if (contest) {
+    saveContest({
+      ...contest,
+      motherSays: says || undefined,
+      ...(blurb !== undefined ? { blurb: blurb.trim() || undefined } : {}),
+    });
+  }
 }
 
 // --- Season scoring settings (Commissioner-set) ------------------------------

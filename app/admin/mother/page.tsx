@@ -36,18 +36,21 @@ interface Draft {
   lions: string;
   opp: string;
   extra: string;
+  blurb: string;
 }
 
-const EMPTY: Draft = { winner: "", lions: "", opp: "", extra: "" };
+const EMPTY: Draft = { winner: "", lions: "", opp: "", extra: "", blurb: "" };
 
 function draftFor(week: number): Draft {
   const saved = mothersPickFor(week);
-  if (!saved) return EMPTY;
+  const blurb = effectiveContest(week)?.blurb ?? "";
+  if (!saved) return { ...EMPTY, blurb };
   return {
     winner: saved.winner ?? "",
     lions: saved.lions != null ? String(saved.lions) : "",
     opp: saved.opp != null ? String(saved.opp) : "",
     extra: saved.extra ?? "",
+    blurb,
   };
 }
 
@@ -165,7 +168,7 @@ function Inner() {
             </div>
             <div className="flex flex-wrap items-end gap-4">
               <label className="block">
-                <span className="text-xs font-semibold uppercase tracking-[0.15em] text-fog">
+                <span className="block text-xs font-semibold uppercase tracking-[0.15em] text-fog">
                   Lions score
                 </span>
                 <input
@@ -178,7 +181,7 @@ function Inner() {
                 />
               </label>
               <label className="block">
-                <span className="text-xs font-semibold uppercase tracking-[0.15em] text-fog">
+                <span className="block text-xs font-semibold uppercase tracking-[0.15em] text-fog">
                   {game ? `${teamInfo(game.opponent).short} score` : "Opponent score"}
                 </span>
                 <input
@@ -195,7 +198,20 @@ function Inner() {
         )}
 
         <label className="mt-5 block">
-          <span className="text-xs font-semibold uppercase tracking-[0.15em] text-fog">
+          <span className="block text-xs font-semibold uppercase tracking-[0.15em] text-fog">
+            From the Commissioner (the weekly announcement)
+          </span>
+          <textarea
+            rows={5}
+            value={draft.blurb}
+            onChange={(e) => set({ blurb: e.target.value })}
+            placeholder="The message the pool reads at the top of This Week. Type as long as it needs to be; readers see the first 100 words and expand for the rest."
+            className="mt-1 w-full rounded-lg border border-edge bg-panel-2 px-3 py-2 text-sm leading-relaxed text-chalk outline-none focus:border-honolulu"
+          />
+        </label>
+
+        <label className="mt-5 block">
+          <span className="block text-xs font-semibold uppercase tracking-[0.15em] text-fog">
             Extra calls (optional, e.g. GOFF OVER / WILLIAMS UNDER)
           </span>
           <input
@@ -217,7 +233,7 @@ function Inner() {
 
         <div className="mt-5 flex flex-wrap items-center gap-3">
           <Btn
-            disabled={!says}
+            disabled={!says && !draft.blurb.trim()}
             onClick={() => {
               saveMothersPick(
                 {
@@ -228,6 +244,7 @@ function Inner() {
                   extra: draft.extra.trim() || undefined,
                 },
                 says,
+                draft.blurb,
               );
               setSaved(true);
             }}

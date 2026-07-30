@@ -134,7 +134,7 @@ function GameCard({
   const isThanksgiving = game.week === 12;
   return (
     <Card
-      className={`p-4 sm:p-5 ${game.home ? "border-l-4 border-l-honolulu/70" : ""}`}
+      className="p-4 sm:p-5"
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         <div className="flex items-center gap-4">
