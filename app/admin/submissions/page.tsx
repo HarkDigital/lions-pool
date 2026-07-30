@@ -15,7 +15,8 @@ import { ALL_WEEKS } from "@/lib/schedule";
 import { gradeWeek } from "@/lib/scoring";
 import { teamInfo } from "@/lib/teams";
 import {
-  currentWeek,
+
+  bonusValues,  currentWeek,
   effectiveContests,
   effectiveResults,
   effectiveSubmissions,
@@ -128,7 +129,7 @@ function SubmissionsInner() {
   const isGraded = contest?.status === "graded" && results != null;
   const grades =
     isGraded && contest && results
-      ? new Map(gradeWeek(contest, results, subs).map((g) => [g.userId, g]))
+      ? new Map(gradeWeek(contest, results, subs, bonusValues()).map((g) => [g.userId, g]))
       : null;
 
   const cols = isGraded ? 6 : 4;

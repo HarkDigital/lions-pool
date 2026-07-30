@@ -7,12 +7,14 @@
 // Everything is derived from the store; nothing is hand-entered.
 // ---------------------------------------------------------------------------
 
+import { useState } from "react";
 import { AdminGate } from "@/components/AdminGate";
 import { AreaLink } from "@/components/AreaLink";
-import { Card, Pill, SectionTitle } from "@/components/ui";
-import { fmtDateTime, fmtPts, ordinal } from "@/lib/format";
-import { computeStandings, type SeasonInput } from "@/lib/scoring";
+import { Btn, Card, Pill, SectionTitle } from "@/components/ui";
+import { fmtDateTime, fmtPts, ordinal, signedPts } from "@/lib/format";
+import { computeStandings, type BonusValues, type SeasonInput } from "@/lib/scoring";
 import {
+  bonusValues,
   currentWeek,
   effectiveContest,
   effectiveContests,
@@ -21,6 +23,7 @@ import {
   paymentFor,
   poolPlayers,
   publicName,
+  saveBonusValues,
   useStoreVersion,
 } from "@/lib/store";
 import type { StandingsRow } from "@/lib/types";
@@ -30,6 +33,85 @@ export default function AdminPage() {
     <AdminGate>
       <Dashboard />
     </AdminGate>
+  );
+}
+
+const BONUS_FIELDS: { key: keyof BonusValues; label: string; hint: string }[] = [
+  { key: "closest", label: "Closest-To", hint: "per team score, when nobody was exact" },
+  { key: "exacto", label: "Exacto", hint: "nailed one team's score" },
+  { key: "perfecto", label: "Perfecto", hint: "nailed the entire final score" },
+  { key: "kod", label: "Kiss of Death", hint: "exact reverse of the final (enter a negative)" },
+];
+
+/** Season bonus payouts. Saving re-scores every graded week instantly. */
+function ScoringSettings() {
+  useStoreVersion();
+  const [draft, setDraft] = useState<Record<keyof BonusValues, string> | null>(null);
+  const [saved, setSaved] = useState(false);
+  const current = bonusValues();
+  const values =
+    draft ??
+    (Object.fromEntries(
+      BONUS_FIELDS.map((f) => [f.key, String(current[f.key])]),
+    ) as Record<keyof BonusValues, string>);
+
+  const parsed = Object.fromEntries(
+    BONUS_FIELDS.map((f) => [f.key, Number(values[f.key])]),
+  ) as unknown as BonusValues;
+  const valid = BONUS_FIELDS.every((f) => Number.isFinite(parsed[f.key]));
+  const dirty = BONUS_FIELDS.some((f) => parsed[f.key] !== current[f.key]);
+
+  return (
+    <Card className="p-5">
+      <h3 className="display text-2xl">Scoring Settings</h3>
+      <p className="mt-1 text-sm text-fog">
+        The payouts for the score bonuses. Changes apply to every graded week instantly. Mother
+        Superior rewrites history when Mother Superior pleases.
+      </p>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {BONUS_FIELDS.map((f) => (
+          <label key={f.key} className="block">
+            <span className="text-xs font-semibold uppercase tracking-[0.15em] text-fog">
+              {f.label}
+            </span>
+            <input
+              type="number"
+              step="0.5"
+              value={values[f.key]}
+              onChange={(e) => {
+                setSaved(false);
+                setDraft({ ...values, [f.key]: e.target.value });
+              }}
+              className="mt-1 w-full rounded-lg border border-edge bg-panel-2 px-3 py-2 text-sm text-chalk outline-none focus:border-honolulu"
+            />
+            <span className="mt-1 block text-[11px] leading-tight text-fog">{f.hint}</span>
+          </label>
+        ))}
+      </div>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <Btn
+          disabled={!valid || !dirty}
+          onClick={() => {
+            saveBonusValues(parsed);
+            setDraft(null);
+            setSaved(true);
+          }}
+        >
+          Save payouts
+        </Btn>
+        {saved && (
+          <span className="text-xs font-semibold text-win">
+            Saved. Every graded week now pays {signedPts(parsed.exacto)} Exacto,{" "}
+            {signedPts(parsed.perfecto)} Perfecto, {signedPts(parsed.kod)} Kiss of Death.
+          </span>
+        )}
+        {!valid && (
+          <span className="text-xs font-semibold text-loss">
+            Numbers only. Mother Superior does not accept essays here.
+          </span>
+        )}
+      </div>
+    </Card>
   );
 }
 
@@ -86,7 +168,7 @@ function Dashboard() {
     results: effectiveResults(w)!,
     subs: effectiveSubmissions(w),
   }));
-  const standings = computeStandings(playerIds, season);
+  const standings = computeStandings(playerIds, season, bonusValues());
   const rowFor = new Map(standings.map((r) => [r.userId, r]));
 
   const ghosts = players.filter((p) => !currentSubs.some((s) => s.userId === p.id));
@@ -181,6 +263,8 @@ function Dashboard() {
           </p>
         )}
       </Card>
+
+      <ScoringSettings />
 
       <Card className="overflow-hidden">
         <div className="border-b border-edge px-6 py-4">

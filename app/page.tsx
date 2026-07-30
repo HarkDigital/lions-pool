@@ -8,7 +8,8 @@
 import { AreaLink as Link } from "@/components/AreaLink";
 import type { ContestStatus, Question } from "@/lib/types";
 import {
-  currentWeek,
+
+  bonusValues,  currentWeek,
   effectiveContest,
   effectiveContests,
   effectiveResults,
@@ -199,6 +200,7 @@ export default function HomePage() {
       ? computeStandings(
           players.map((p) => p.id),
           gradedWeeks,
+          bonusValues(),
         ).slice(0, 3)
       : [];
 

@@ -27,6 +27,7 @@ import {
   SUBMISSIONS,
 } from "./demo-data";
 import { LIVE_CONTESTS, LIVE_EVERYONE, LIVE_PLAYERS } from "./live-data";
+import { DEFAULT_BONUS_VALUES, type BonusValues } from "./scoring";
 
 // --- Area / mode -------------------------------------------------------------
 
@@ -53,7 +54,15 @@ function k(name: string): string {
   return `lionspool.${poolMode()}.${name}`;
 }
 
-const KEY_NAMES = ["user", "subs", "contests", "results", "nicknames", "payments"] as const;
+const KEY_NAMES = [
+  "user",
+  "subs",
+  "contests",
+  "results",
+  "nicknames",
+  "payments",
+  "settings",
+] as const;
 
 // --- Baked data per area -----------------------------------------------------
 
@@ -277,6 +286,21 @@ export function publicName(p: Participant): string {
 export function saveNickname(userId: string, nickname: string) {
   const overlay = readJSON<Record<string, string>>(k("nicknames"), {});
   writeJSON(k("nicknames"), { ...overlay, [userId]: nickname });
+}
+
+// --- Season scoring settings (Commissioner-set) ------------------------------
+
+/**
+ * Bonus payouts for the area's season. Every grading call site passes these
+ * into the engine, so a change re-scores all graded weeks immediately.
+ */
+export function bonusValues(): BonusValues {
+  const saved = readJSON<Partial<BonusValues>>(k("settings"), {});
+  return { ...DEFAULT_BONUS_VALUES, ...saved };
+}
+
+export function saveBonusValues(v: BonusValues) {
+  writeJSON(k("settings"), v);
 }
 
 // --- Payments (Commissioner bookkeeping) -------------------------------------

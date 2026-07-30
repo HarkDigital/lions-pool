@@ -29,7 +29,7 @@ import {
 } from "@/lib/store";
 import { gameForWeek } from "@/lib/schedule";
 import { TEAMS, teamInfo } from "@/lib/teams";
-import { fmtDateTime, fmtPts } from "@/lib/format";
+import { fmtDateTime, fmtPts, utcToEtInput, etInputToUtc } from "@/lib/format";
 import { AdminGate } from "@/components/AdminGate";
 import { TeamLogo } from "@/components/TeamLogo";
 import { Btn, Card, Pill, PointsChip, SectionTitle, STATUS_TONE } from "@/components/ui";
@@ -55,16 +55,15 @@ function defaultBuilderWeek(): number {
   return effectiveContests().find((c) => c.status === "draft")?.week ?? currentWeek();
 }
 
+// Lock and kickoff fields are entered and shown in EASTERN time no matter
+// whose machine is typing; storage stays UTC. Helpers live in lib/format.
 function isoToLocalInput(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  if (!iso || Number.isNaN(Date.parse(iso))) return "";
+  return utcToEtInput(iso);
 }
 
 function localInputToIso(v: string): string {
-  const d = new Date(v);
-  return Number.isNaN(d.getTime()) ? v : d.toISOString();
+  return v ? etInputToUtc(v) : v;
 }
 
 function nextQuestionId(week: number, questions: Question[]): string {
@@ -325,7 +324,7 @@ function PropEditor({ q, onChange }: { q: PropQ; onChange: (q: PropQ) => void })
     onChange({ ...q, options: q.options.map((o, j) => (j === i ? { ...o, ...patch } : o)) });
   return (
     <div className="grid gap-3">
-      <Field label="The question">
+      <Field label="The pick">
         <input
           className={INPUT}
           value={q.question}
@@ -386,7 +385,7 @@ function PickemEditor({ q, onChange }: { q: PickemQ; onChange: (q: PickemQ) => v
           <Field label="Home">
             <TeamSelect value={g.home} onChange={(home) => setGame(i, { home })} />
           </Field>
-          <Field label="Kickoff (optional)">
+          <Field label="Kickoff (optional, Eastern time)">
             <input
               type="datetime-local"
               className={INPUT}
@@ -399,7 +398,7 @@ function PickemEditor({ q, onChange }: { q: PickemQ; onChange: (q: PickemQ) => v
           <span
             title={
               q.games.length === 1
-                ? "A pick’em with no games is just a shrug. Remove the whole question instead."
+                ? "A pick’em with no games is just a shrug. Remove the whole pick instead."
                 : undefined
             }
           >
@@ -463,7 +462,7 @@ function QuestionCard({
           Remove
         </Btn>
       </div>
-      <Field label="Heading (optional, shown above the question)" className="mb-3">
+      <Field label="Heading (optional, shown above the pick)" className="mb-3">
         <input
           className={INPUT}
           value={q.title ?? ""}
@@ -591,7 +590,7 @@ function SlatePreview({ contest }: { contest: Contest }) {
       </div>
       {contest.comboBonus && (
         <p className="mt-3 text-xs text-gold">
-          Sweep all {contest.comboBonus.questionIds.length} checked questions for +
+          Sweep all {contest.comboBonus.questionIds.length} checked picks for +
           {fmtPts(contest.comboBonus.allCorrectBonus)} on top.
         </p>
       )}
@@ -701,7 +700,7 @@ function WeekEditor({
             ))}
           </select>
         </Field>
-        <Field label="Picks lock at (your clock, stored as UTC)">
+        <Field label="Picks lock at (Eastern time)">
           <input
             type="datetime-local"
             className={INPUT}
@@ -732,7 +731,7 @@ function WeekEditor({
 
       <div className="mt-6">
         <div className="mb-3 flex items-center justify-between">
-          <h4 className="display text-xl">Questions</h4>
+          <h4 className="display text-xl">Picks</h4>
           <span className="text-xs text-fog">{draft.questions.length} on the slate</span>
         </div>
         <div className="space-y-4">
@@ -748,13 +747,13 @@ function WeekEditor({
           ))}
           {draft.questions.length === 0 && (
             <p className="rounded-lg border border-dashed border-edge-2 p-4 text-sm text-fog">
-              No questions yet. A slate with no questions is just a newsletter. Add one.
+              No picks yet. A slate with no picks is just a newsletter. Add one.
             </p>
           )}
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <span className="text-xs font-semibold uppercase tracking-wider text-fog">
-            Add question:
+            Add pick:
           </span>
           {(Object.keys(KIND_LABEL) as Question["kind"][]).map((kind) => (
             <Btn
@@ -777,7 +776,7 @@ function WeekEditor({
             checked={!!draft.comboBonus}
             onChange={(e) => toggleCombo(e.target.checked)}
           />
-          Combo bonus: sweep a set of questions, get extra
+          Combo bonus: sweep a set of picks, get extra
         </label>
         {draft.comboBonus && (
           <div className="mt-3 space-y-3">

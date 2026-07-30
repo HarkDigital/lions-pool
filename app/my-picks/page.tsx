@@ -13,7 +13,8 @@ import { fmtDateTime, fmtPts, fmtScore, ordinal, signedPts } from "@/lib/format"
 import { gameForWeek } from "@/lib/schedule";
 import { computeStandings, gradeWeek, type SeasonInput } from "@/lib/scoring";
 import {
-  effectiveContests,
+
+  bonusValues,  effectiveContests,
   effectiveResults,
   effectiveSubmissions,
   poolPlayers,
@@ -294,6 +295,7 @@ export default function MyPicksPage() {
   const standings = computeStandings(
     players.map((p) => p.id),
     gradedInputs,
+    bonusValues(),
   );
   const me = standings.find((r) => r.userId === user.id);
   const bonuses = me?.bonuses ?? { closest: 0, exacto: 0, perfecto: 0, kod: 0 };
@@ -361,7 +363,7 @@ export default function MyPicksPage() {
           const graded = contest.status === "graded" && results != null;
           const grade =
             contest.status === "graded" && results && sub
-              ? gradeWeek(contest, results, subs).find((g) => g.userId === user.id)
+              ? gradeWeek(contest, results, subs, bonusValues()).find((g) => g.userId === user.id)
               : undefined;
           return (
             <WeekCard

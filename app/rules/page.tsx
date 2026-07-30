@@ -2,27 +2,13 @@ import type { Metadata } from "next";
 import { AreaLink as Link } from "@/components/AreaLink";
 import { Card, Pill, PointsChip, SectionTitle } from "@/components/ui";
 import { TeamLogo } from "@/components/TeamLogo";
-import { BONUS } from "@/lib/scoring";
-import { signedPts } from "@/lib/format";
+import { BonusValueChip } from "@/components/BonusValueChip";
 
 export const metadata: Metadata = {
   title: "House Rules: The Lions Pool",
   description:
     "Team. Win. Score. The complete house rules of The Lions Pool, translated for polite company.",
 };
-
-/** Bonus-table chip: gold for the crown jewels, red for the kiss. */
-function BonusChip({ points, tone }: { points: number; tone: "gold" | "loss" }) {
-  return (
-    <span
-      className={`display inline-flex min-w-14 items-center justify-center rounded-lg border px-2 py-0.5 text-xl leading-6 ${
-        tone === "gold" ? "border-gold/50 bg-gold/10 text-gold" : "border-loss/50 bg-loss/10 text-loss"
-      }`}
-    >
-      {signedPts(points)}
-    </span>
-  );
-}
 
 export default function RulesPage() {
   return (
@@ -164,7 +150,7 @@ export default function RulesPage() {
                     <span className="display text-2xl text-chalk">Closest-To</span>
                   </td>
                   <td className="px-4 py-4 align-top">
-                    <BonusChip points={BONUS.CLOSEST} tone="gold" />
+                    <BonusValueChip k="closest" tone="gold" />
                   </td>
                   <td className="px-4 py-4 align-top leading-relaxed text-silver sm:pr-6">
                     Nobody in the pool nailed that team&rsquo;s score exactly, and your guess is
@@ -178,7 +164,7 @@ export default function RulesPage() {
                     <span className="display text-2xl text-chalk">Exacto</span>
                   </td>
                   <td className="px-4 py-4 align-top">
-                    <BonusChip points={BONUS.EXACTO} tone="gold" />
+                    <BonusValueChip k="exacto" tone="gold" />
                   </td>
                   <td className="px-4 py-4 align-top leading-relaxed text-silver sm:pr-6">
                     You called one team&rsquo;s score on the nose. Either team. Precision gets
@@ -190,7 +176,7 @@ export default function RulesPage() {
                     <span className="display text-2xl text-gold">Perfecto</span>
                   </td>
                   <td className="px-4 py-4 align-top">
-                    <BonusChip points={BONUS.PERFECTO} tone="gold" />
+                    <BonusValueChip k="perfecto" tone="gold" />
                   </td>
                   <td className="px-4 py-4 align-top leading-relaxed text-silver sm:pr-6">
                     You called the entire final score. Both numbers. The whole game, summoned
@@ -202,7 +188,7 @@ export default function RulesPage() {
                     <span className="display text-2xl text-loss">Kiss of Death</span>
                   </td>
                   <td className="px-4 py-4 align-top">
-                    <BonusChip points={BONUS.KISS_OF_DEATH} tone="loss" />
+                    <BonusValueChip k="kod" tone="loss" />
                   </td>
                   <td className="px-4 py-4 align-top leading-relaxed text-silver sm:pr-6">
                     You picked the exact reverse of the final score. The pool&rsquo;s signature
@@ -235,16 +221,16 @@ export default function RulesPage() {
             <div>
               <div className="text-xs uppercase tracking-[0.15em] text-fog">You collect</div>
               <div className="mt-1 flex items-center gap-2">
-                <BonusChip points={BONUS.CLOSEST} tone="gold" />
-                <BonusChip points={BONUS.CLOSEST} tone="gold" />
+                <BonusValueChip k="closest" tone="gold" />
+                <BonusValueChip k="closest" tone="gold" />
               </div>
             </div>
           </div>
           <p className="mt-5 max-w-3xl text-sm leading-relaxed text-silver">
             Nobody anywhere in the pool hit either score exactly. Your 31 is the nearest anyone
-            came to the Lions&rsquo; 32: Closest-To, +5. Your 6 is the nearest anyone
-            came to the Saints&rsquo; 7: Closest-To, +5. You did not nail a single number
-            and you still bank +10. That is the game within the game.
+            came to the Lions&rsquo; 32: one Closest-To. Your 6 is the nearest anyone came to the
+            Saints&rsquo; 7: another. You did not nail a single number and you still bank two
+            bonuses. That is the game within the game.
           </p>
           <ul className="mt-5 space-y-2 border-t border-edge pt-4 text-sm leading-relaxed text-silver">
             <li className="flex gap-2">
@@ -344,7 +330,7 @@ export default function RulesPage() {
                 <span>5-for-5</span>
               </div>
               <div className="flex items-center gap-2 text-sm font-semibold text-fog">
-                <BonusChip points={30} tone="gold" />
+                <PointsChip points={30} />
                 <span>0-for-5</span>
               </div>
             </div>

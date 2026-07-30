@@ -1,16 +1,16 @@
 /**
- * The official mark: /public/logo.svg (source: Logo/Logo.svg, provided by the
- * Commissioner). Wide stacked wordmark, 564x208, built for dark surfaces.
- * Plain <img> needs the basePath prefixed by hand; NEXT_PUBLIC_BASE_PATH is
- * inlined at build time.
+ * The official mark: /public/logo-wide.svg (source: Logo/Logo-Wide.svg,
+ * provided by the Commissioner). Single-line wide lockup, 1035x153, built
+ * for dark surfaces. Plain <img> needs the basePath prefixed by hand;
+ * NEXT_PUBLIC_BASE_PATH is inlined at build time.
  */
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
-export function LogoMark({ height = 40, className = "" }: { height?: number; className?: string }) {
+export function LogoMark({ height = 36, className = "" }: { height?: number; className?: string }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={`${BASE}/logo.svg`}
+      src={`${BASE}/logo-wide.svg`}
       alt="The Lions Pool"
       height={height}
       style={{ height, width: "auto" }}
@@ -20,5 +20,5 @@ export function LogoMark({ height = 40, className = "" }: { height?: number; cla
 }
 
 export function LogoLockup({ compact = false }: { compact?: boolean }) {
-  return <LogoMark height={compact ? 55 : 90} />;
+  return <LogoMark height={compact ? 40 : 64} />;
 }

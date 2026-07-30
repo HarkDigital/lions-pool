@@ -10,7 +10,8 @@ import { useEffect, useState } from "react";
 import { AreaLink } from "@/components/AreaLink";
 import type { Contest, Question, TeamAbbr, UserWeekGrade, WeekResults } from "@/lib/types";
 import {
-  currentWeek,
+
+  bonusValues,  currentWeek,
   effectiveContest,
   effectiveContests,
   effectiveResults,
@@ -267,7 +268,7 @@ function GradingConsole() {
 
   const runPreview = () => {
     if (!contest) return;
-    setPreview([...gradeWeek(contest, draft, subs)].sort((a, b) => b.total - a.total));
+    setPreview([...gradeWeek(contest, draft, subs, bonusValues())].sort((a, b) => b.total - a.total));
   };
 
   const handleSave = () => {

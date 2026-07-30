@@ -22,7 +22,8 @@ import type {
   UserWeekGrade,
 } from "@/lib/types";
 import {
-  currentWeek,
+
+  bonusValues,  currentWeek,
   effectiveContest,
   effectiveContests,
   effectiveResults,
@@ -306,12 +307,12 @@ export default function NumsPage() {
     const weeks = gradedWeeks();
     const players = poolPlayers();
     const playerIds = players.map((p) => p.id);
-    const rows = computeStandings(playerIds, weeks);
+    const rows = computeStandings(playerIds, weeks, bonusValues());
 
     const grades = new Map<number, Map<string, UserWeekGrade>>();
     for (const w of weeks) {
       const m = new Map<string, UserWeekGrade>();
-      for (const g of gradeWeek(w.contest, w.results, w.subs)) m.set(g.userId, g);
+      for (const g of gradeWeek(w.contest, w.results, w.subs, bonusValues())) m.set(g.userId, g);
       grades.set(w.contest.week, m);
     }
 
@@ -321,7 +322,7 @@ export default function NumsPage() {
       label: publicName(p),
       color: p.avatarColor,
     }));
-    const progression = rankProgression(playerIds, weeks);
+    const progression = rankProgression(playerIds, weeks, bonusValues());
 
     // Bonus ledgers: every score-bonus line item, by type, week then player.
     const bonusHits: Record<Exclude<ScoreBonusType, "closest">, BonusHit[]> = {

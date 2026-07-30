@@ -988,3 +988,45 @@ describe("rankProgression on demo data", () => {
     expect(prog[1].ranks["muscle"].total).toBe(4.5);
   });
 });
+
+describe("configurable bonus values", () => {
+  const contest: Contest = {
+    week: 1,
+    title: "t",
+    hasLionsGame: true,
+    lockAtUTC: "2026-09-13T17:00Z",
+    questions: [],
+    scoreBonuses: true,
+    status: "graded",
+  };
+  const results: WeekResults = { week: 1, lionsScore: 30, oppScore: 20, values: {} };
+  const custom = { closest: 3, exacto: 10, perfecto: 50, kod: -40 };
+
+  it("pays custom exacto/perfecto/kod/closest through gradeWeek", () => {
+    const subs: Submission[] = [
+      makeSub("perf", {}, { winner: "DET", lions: 30, opp: 20 }),
+      makeSub("ex", {}, { winner: "DET", lions: 30, opp: 13 }),
+      makeSub("kiss", {}, { winner: "NO", lions: 20, opp: 30 }),
+      makeSub("near", {}, { winner: "DET", lions: 27, opp: 21 }),
+    ];
+    const grades = new Map(gradeWeek(contest, results, subs, custom).map((g) => [g.userId, g]));
+    expect(grades.get("perf")!.total).toBe(50);
+    expect(grades.get("ex")!.total).toBe(10);
+    expect(grades.get("kiss")!.total).toBe(-40);
+    // near: opp 21 off by 1 is the closest opp score (nobody exact on 20 besides perfecto?
+    // perfecto sets both exact flags, so no closest awards at all here.
+    expect(grades.get("near")!.total).toBe(0);
+  });
+
+  it("defaults stay rules.md values when no override is passed", () => {
+    const subs: Submission[] = [makeSub("perf", {}, { winner: "DET", lions: 30, opp: 20 })];
+    expect(gradeWeek(contest, results, subs)[0].total).toBe(20);
+  });
+
+  it("threads through computeStandings and rankProgression", () => {
+    const subs: Submission[] = [makeSub("perf", {}, { winner: "DET", lions: 30, opp: 20 })];
+    const weeks = [{ contest, results, subs }];
+    expect(computeStandings(["perf"], weeks, custom)[0].total).toBe(50);
+    expect(rankProgression(["perf"], weeks, custom)[0].ranks["perf"].total).toBe(50);
+  });
+});

@@ -29,6 +29,26 @@ export const BONUS = {
   KISS_OF_DEATH: -20, // picked the exact reverse of the final score
 } as const;
 
+/**
+ * Season-configurable bonus payouts (Mother Superior sets them in the admin
+ * Settings). Defaults mirror BONUS; every grading entry point accepts an
+ * override and threads it through, so changing a value re-scores the whole
+ * season on the next render.
+ */
+export interface BonusValues {
+  closest: number;
+  exacto: number;
+  perfecto: number;
+  kod: number;
+}
+
+export const DEFAULT_BONUS_VALUES: BonusValues = {
+  closest: BONUS.CLOSEST,
+  exacto: BONUS.EXACTO,
+  perfecto: BONUS.PERFECTO,
+  kod: BONUS.KISS_OF_DEATH,
+};
+
 // --- Per-question grading ---------------------------------------------------
 
 /** Winner's team abbr for the week's Lions game, from the final score. */
@@ -247,6 +267,7 @@ export function gradeScoreBonuses(
   contest: Contest,
   results: WeekResults,
   subs: Submission[],
+  bonus: BonusValues = DEFAULT_BONUS_VALUES,
 ): Map<string, LineItem[]> {
   const out = new Map<string, LineItem[]>();
   if (!contest.scoreBonuses || results.lionsScore == null || results.oppScore == null) return out;
@@ -271,7 +292,7 @@ export function gradeScoreBonuses(
       someoneExactLions = someoneExactOpp = true;
       add(s.userId, {
         label: "PERFECTO: nailed the final score",
-        points: BONUS.PERFECTO,
+        points: bonus.perfecto,
         kind: "bonus",
         bonusType: "perfecto",
       });
@@ -281,7 +302,7 @@ export function gradeScoreBonuses(
       kod.add(s.userId);
       add(s.userId, {
         label: "KISS OF DEATH: exact reverse of the final score",
-        points: BONUS.KISS_OF_DEATH,
+        points: bonus.kod,
         kind: "penalty",
         bonusType: "kod",
       });
@@ -293,7 +314,7 @@ export function gradeScoreBonuses(
       someoneExactLions = true;
       add(s.userId, {
         label: `EXACTO: called Lions ${L} on the nose`,
-        points: BONUS.EXACTO,
+        points: bonus.exacto,
         kind: "bonus",
         bonusType: "exacto",
       });
@@ -302,7 +323,7 @@ export function gradeScoreBonuses(
       someoneExactOpp = true;
       add(s.userId, {
         label: `EXACTO: called the opponent's ${O} on the nose`,
-        points: BONUS.EXACTO,
+        points: bonus.exacto,
         kind: "bonus",
         bonusType: "exacto",
       });
@@ -327,7 +348,7 @@ export function gradeScoreBonuses(
       if (diff === best) {
         add(s.userId, {
           label: `CLOSEST TO: ${side.label} score (off by ${diff})`,
-          points: BONUS.CLOSEST,
+          points: bonus.closest,
           kind: "bonus",
           bonusType: "closest",
         });
@@ -343,8 +364,9 @@ export function gradeWeek(
   contest: Contest,
   results: WeekResults,
   subs: Submission[],
+  bonus: BonusValues = DEFAULT_BONUS_VALUES,
 ): UserWeekGrade[] {
-  const bonusMap = gradeScoreBonuses(contest, results, subs);
+  const bonusMap = gradeScoreBonuses(contest, results, subs, bonus);
   return subs.map((sub) => {
     const items: LineItem[] = [];
     for (const q of contest.questions) {
@@ -413,10 +435,14 @@ export interface WeekRanks {
  * Standings recomputed after each successive graded week, for the season
  * movement graph. Cheap: one computeStandings call per prefix.
  */
-export function rankProgression(userIds: string[], weeks: SeasonInput[]): WeekRanks[] {
+export function rankProgression(
+  userIds: string[],
+  weeks: SeasonInput[],
+  bonus: BonusValues = DEFAULT_BONUS_VALUES,
+): WeekRanks[] {
   const sorted = [...weeks].sort((a, b) => a.contest.week - b.contest.week);
   return sorted.map((w, i) => {
-    const rows = computeStandings(userIds, sorted.slice(0, i + 1));
+    const rows = computeStandings(userIds, sorted.slice(0, i + 1), bonus);
     return {
       week: w.contest.week,
       ranks: Object.fromEntries(
@@ -429,6 +455,7 @@ export function rankProgression(userIds: string[], weeks: SeasonInput[]): WeekRa
 export function computeStandings(
   userIds: string[],
   weeks: SeasonInput[],
+  bonus: BonusValues = DEFAULT_BONUS_VALUES,
 ): import("./types").StandingsRow[] {
   const weekly = new Map<string, Record<number, number>>();
   const bonuses = new Map<string, { closest: number; exacto: number; perfecto: number; kod: number }>();
@@ -438,7 +465,7 @@ export function computeStandings(
   }
   const graded = [...weeks].sort((a, b) => a.contest.week - b.contest.week);
   for (const w of graded) {
-    for (const g of gradeWeek(w.contest, w.results, w.subs)) {
+    for (const g of gradeWeek(w.contest, w.results, w.subs, bonus)) {
       if (!weekly.has(g.userId)) continue;
       weekly.get(g.userId)![w.contest.week] = g.total;
       const b = bonuses.get(g.userId)!;
