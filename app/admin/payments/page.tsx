@@ -159,12 +159,6 @@ function PaymentsInner() {
           </table>
         </div>
       </Card>
-
-      <Card className="border-dashed p-4 text-xs leading-relaxed text-fog">
-        <span className="font-bold uppercase tracking-wider text-sky">House policy: </span>
-        the buy-in is due before the first kickoff. Unpaid is not a moral judgment, it is a fact
-        with a red border. Settle up and the border goes away.
-      </Card>
     </div>
   );
 }

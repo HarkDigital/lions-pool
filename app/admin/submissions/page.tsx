@@ -139,7 +139,7 @@ function SubmissionsInner() {
       <SectionTitle kicker="Mother Superior's Office">The Inbox</SectionTitle>
 
       <div className="space-y-3">
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex gap-1.5 overflow-x-auto pb-1">
           {ALL_WEEKS.map((w) => {
             const c = contests.find((x) => x.week === w);
             const selected = w === week;
@@ -152,7 +152,7 @@ function SubmissionsInner() {
                   setWeek(w);
                   setExpanded(null);
                 }}
-                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition ${
+                className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border bg-pitch px-2.5 py-1.5 text-xs font-bold transition ${
                   selected
                     ? "border-honolulu bg-honolulu/20 text-sky"
                     : dim

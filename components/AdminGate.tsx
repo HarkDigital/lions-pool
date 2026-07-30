@@ -80,9 +80,6 @@ export function AdminGate({ children }: { children: ReactNode }) {
             {l.label}
           </AreaLink>
         ))}
-        <span className="ml-auto hidden pr-2 text-xs font-semibold uppercase tracking-[0.2em] text-gold/70 sm:inline">
-          Mother Superior&apos;s Office
-        </span>
       </div>
       {children}
     </div>

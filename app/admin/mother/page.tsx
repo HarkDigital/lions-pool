@@ -114,18 +114,18 @@ function Inner() {
 
   return (
     <div className="space-y-8">
-      <SectionTitle kicker="Admin: the house line">Mother Superior&rsquo;s Picks</SectionTitle>
+      <SectionTitle kicker="Mother Superior's Office">Mother Superior&rsquo;s Picks</SectionTitle>
 
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex gap-1.5 overflow-x-auto pb-1">
         {contests.map((c) => (
           <button
             key={c.week}
             type="button"
             onClick={() => setWeek(c.week)}
-            className={`rounded-lg border px-3 py-1.5 text-xs font-bold transition ${
+            className={`shrink-0 whitespace-nowrap rounded-lg border bg-pitch px-3 py-1.5 text-xs font-bold transition ${
               week === c.week
                 ? "border-honolulu bg-honolulu/15 text-sky"
-                : "border-edge bg-panel text-fog hover:border-edge-2"
+                : "border-edge text-fog hover:border-edge-2"
             }`}
           >
             Wk {c.week}

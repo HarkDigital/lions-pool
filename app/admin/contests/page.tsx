@@ -31,6 +31,7 @@ import { gameForWeek } from "@/lib/schedule";
 import { TEAMS, teamInfo } from "@/lib/teams";
 import { fmtDateTime, fmtPts, utcToEtInput, etInputToUtc } from "@/lib/format";
 import { AdminGate } from "@/components/AdminGate";
+import { ExpandableText } from "@/components/ExpandableText";
 import { TeamLogo } from "@/components/TeamLogo";
 import { Btn, Card, Pill, PointsChip, SectionTitle, STATUS_TONE } from "@/components/ui";
 
@@ -577,7 +578,11 @@ function SlatePreview({ contest }: { contest: Contest }) {
         )}{" "}
         · locks {fmtDateTime(contest.lockAtUTC)}
       </div>
-      {contest.blurb && <p className="mt-3 text-sm text-silver">{contest.blurb}</p>}
+      {contest.blurb && (
+        <div className="mt-3">
+          <ExpandableText text={contest.blurb} words={100} />
+        </div>
+      )}
       {contest.motherSays && (
         <div className="mt-3">
           <Pill tone="gold">Mother Superior's pick: {contest.motherSays}</Pill>
@@ -862,7 +867,7 @@ function ContestBuilder() {
 
   return (
     <div className="space-y-6">
-      <SectionTitle kicker="Admin · Weekly duty">Contest Builder</SectionTitle>
+      <SectionTitle kicker="Mother Superior's Office">Contest Builder</SectionTitle>
 
       <div className="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
         {/* Week rail (top strip on mobile) */}
@@ -874,10 +879,10 @@ function ContestBuilder() {
               <button
                 key={c.week}
                 onClick={() => setSelectedWeek(c.week)}
-                className={`flex shrink-0 items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition ${
+                className={`flex shrink-0 items-center justify-between gap-3 rounded-lg border bg-pitch px-3 py-2 text-left transition ${
                   active
                     ? "border-honolulu/60 bg-honolulu/10"
-                    : "border-edge bg-panel hover:border-edge-2"
+                    : "border-edge hover:border-edge-2"
                 }`}
               >
                 <span className="flex items-baseline gap-2">

@@ -287,10 +287,10 @@ function GradingConsole() {
 
   return (
     <div className="space-y-6">
-      <SectionTitle kicker="Admin · After the whistle">Grading Console</SectionTitle>
+      <SectionTitle kicker="Mother Superior's Office">Grading Console</SectionTitle>
 
       {/* Week selector: only weeks with a real slate */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex gap-2 overflow-x-auto pb-1">
         {contests.map((c) => {
           const graded = isGraded(c.week, c.status);
           const active = c.week === selectedWeek;
@@ -298,7 +298,7 @@ function GradingConsole() {
             <button
               key={c.week}
               onClick={() => setSelectedWeek(c.week)}
-              className={`rounded-lg border px-3 py-1.5 text-sm font-bold transition ${
+              className={`shrink-0 whitespace-nowrap rounded-lg border bg-pitch px-3 py-1.5 text-sm font-bold transition ${
                 active
                   ? "border-honolulu/60 bg-honolulu/15 text-sky"
                   : graded
