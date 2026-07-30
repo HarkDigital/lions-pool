@@ -1,7 +1,25 @@
 import type { ReactNode } from "react";
+import type { ContestStatus } from "@/lib/types";
 
 /* Shared primitives. Every page builds from these so the whole site reads
    as one system. Keep props minimal; use className for one-off spacing. */
+
+/* One status, one color, everywhere. Draft is neutral, open is green (go
+   make your pick), locked is gold (held for grading), graded is blue (in
+   the books). Every surface that colors a ContestStatus imports these. */
+export const STATUS_TONE: Record<ContestStatus, "default" | "blue" | "gold" | "win" | "loss"> = {
+  draft: "default",
+  open: "win",
+  locked: "gold",
+  graded: "blue",
+};
+
+export const STATUS_DOT: Record<ContestStatus, string> = {
+  draft: "bg-edge-2",
+  open: "bg-win",
+  locked: "bg-gold",
+  graded: "bg-sky",
+};
 
 export function Card({
   children,
@@ -77,7 +95,7 @@ export function PointsChip({ points, hit }: { points: number; hit?: boolean }) {
           ? "border-honolulu/50 bg-honolulu/10 text-sky"
           : hit
             ? "border-win/60 bg-win/10 text-win"
-            : "border-edge text-fog opacity-60"
+            : "border-edge text-fog"
       }`}
     >
       +{val}

@@ -14,10 +14,12 @@ import type {
   MoneylineQ,
   OverUnderQ,
   Question,
+  SpreadQ,
   Submission,
   TeamAbbr,
 } from "@/lib/types";
-import { mySubmission, saveSubmission, useStoreVersion, useUser } from "@/lib/store";
+import { isContestOpen, mySubmission, saveSubmission, useStoreVersion, useUser } from "@/lib/store";
+import { spreadSideFromScore } from "@/lib/scoring";
 import { gameForWeek } from "@/lib/schedule";
 import { teamInfo } from "@/lib/teams";
 import { fmtDateTime, fmtPts } from "@/lib/format";
@@ -173,7 +175,7 @@ function answerLine(q: Question, sub: Submission): ReactNode {
       if (a !== "over" && a !== "under" && a !== "exact") return missing;
       const label =
         a === "exact"
-          ? `Straight money on ${fmtPts(q.line)}`
+          ? `Straight Money on ${fmtPts(q.line)}`
           : `${a === "over" ? "Over" : "Under"} ${fmtPts(q.line)}`;
       return (
         <>
@@ -297,8 +299,25 @@ export function PickForm({ contest }: { contest: Contest }) {
     );
   }
 
+  if (user.isAdmin) {
+    return (
+      <Card accent className="p-6 text-center sm:p-8">
+        <div className="display text-2xl">Mother doesn&apos;t pick. Mother grades.</div>
+        <p className="mt-2 text-sm text-fog">
+          The house stays off the board. Set the lines, keep the books, grade the week.
+        </p>
+        <Link
+          href="/admin/"
+          className="mt-4 inline-flex items-center justify-center rounded-lg bg-honolulu px-5 py-2.5 text-sm font-bold text-white transition hover:bg-honolulu-deep"
+        >
+          Go run the pool
+        </Link>
+      </Card>
+    );
+  }
+
   const existing = mySubmission(contest.week, user.id);
-  const isOpen = contest.status === "open";
+  const isOpen = isContestOpen(contest);
 
   if (existing && !editing) {
     return (
@@ -350,7 +369,10 @@ export function PickForm({ contest }: { contest: Contest }) {
     ? lionsML.options
     : [{ team: "DET" }, { team: opp }];
 
-  const isDerivedOU = (q: OverUnderQ) => q.source !== "stat" && needsScore;
+  const isDerivedOU = (q: OverUnderQ) => q.source !== "stat" && needsScore && !q.answeredByPlayer;
+
+  /** "Mother does the math" spreads: no side buttons, the score IS the pick. */
+  const isDerivedSpread = (q: SpreadQ) => !!q.derived && needsScore;
 
   const scoreConflict =
     needsScore &&
@@ -363,6 +385,10 @@ export function PickForm({ contest }: { contest: Contest }) {
     switch (q.kind) {
       case "moneyline":
         return q === lionsML ? draft.winner != null : typeof draft.answers[q.id] === "string";
+      case "spread":
+        // Derived weeks only need the score — Mother does the math on the side.
+        if (isDerivedSpread(q)) return lionsN != null && oppN != null;
+        return typeof draft.answers[q.id] === "string";
       case "overUnder":
         if (isDerivedOU(q)) {
           if (lionsN == null || oppN == null) return false;
@@ -370,9 +396,10 @@ export function PickForm({ contest }: { contest: Contest }) {
         }
         return typeof draft.answers[q.id] === "string";
       case "pickem": {
+        // A slate with zero games has nothing to answer — never brick the form.
         const a = draft.answers[q.id];
-        if (typeof a !== "object" || a == null) return false;
-        return q.games.every((g) => typeof (a as Record<string, string>)[g.id] === "string");
+        const map = (typeof a === "object" && a != null ? a : {}) as Record<string, string>;
+        return q.games.every((g) => typeof map[g.id] === "string");
       }
       default:
         return typeof draft.answers[q.id] === "string";
@@ -415,6 +442,11 @@ export function PickForm({ contest }: { contest: Contest }) {
   };
 
   const save = () => {
+    // Re-check the clock: a form left open past the lock refuses to submit.
+    if (!isContestOpen(contest)) {
+      setEditing(false);
+      return;
+    }
     if (problems.length > 0) {
       setShowErrors(true);
       return;
@@ -423,6 +455,10 @@ export function PickForm({ contest }: { contest: Contest }) {
     for (const q of contest.questions) {
       if (q.kind === "moneyline" && q === lionsML) {
         answers[q.id] = draft.winner!;
+        continue;
+      }
+      if (q.kind === "spread" && isDerivedSpread(q)) {
+        answers[q.id] = spreadSideFromScore(q, { lions: lionsN!, opp: oppN! })!;
         continue;
       }
       if (q.kind === "overUnder" && isDerivedOU(q)) {
@@ -470,7 +506,45 @@ export function PickForm({ contest }: { contest: Contest }) {
           </section>
         );
       }
-      case "spread":
+      case "spread": {
+        if (isDerivedSpread(q)) {
+          const side =
+            lionsN != null && oppN != null
+              ? spreadSideFromScore(q, { lions: lionsN, opp: oppN })
+              : null;
+          return (
+            <section key={q.id}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <QHeader>
+                  {q.title ?? `The spread: ${teamInfo(q.favorite).abbr} −${fmtPts(q.line)} — Mother does the math`}
+                </QHeader>
+                <span className="flex flex-wrap items-center gap-2 text-xs font-semibold text-fog">
+                  {q.favorite} −{fmtPts(q.line)} <PointsChip points={q.favoritePoints} /> {q.dog}{" "}
+                  +{fmtPts(q.line)} <PointsChip points={q.dogPoints} />
+                </span>
+              </div>
+              <div className="mt-3 rounded-lg border border-honolulu/40 bg-honolulu/10 px-4 py-3 text-sm text-silver">
+                {side == null ? (
+                  <>
+                    Don&apos;t tell Mother a side. Enter your winner and score above — she does the
+                    math on where you landed.
+                  </>
+                ) : (
+                  <span className="flex flex-wrap items-center gap-2">
+                    Your score says: {lionsN}–{oppN} →{" "}
+                    <span className="font-bold text-chalk">
+                      {side === q.favorite
+                        ? `${q.favorite} −${fmtPts(q.line)}`
+                        : `${q.dog} +${fmtPts(q.line)}`}
+                    </span>
+                    , pays{" "}
+                    <PointsChip points={side === q.favorite ? q.favoritePoints : q.dogPoints} />
+                  </span>
+                )}
+              </div>
+            </section>
+          );
+        }
         return (
           <section key={q.id}>
             <QHeader>{q.title ?? `The spread: ${teamInfo(q.favorite).abbr} −${fmtPts(q.line)}`}</QHeader>
@@ -496,6 +570,7 @@ export function PickForm({ contest }: { contest: Contest }) {
             </div>
           </section>
         );
+      }
       case "overUnder": {
         if (isDerivedOU(q)) {
           const noun = q.source === "lionsMargin" ? "margin" : "total";
@@ -506,7 +581,7 @@ export function PickForm({ contest }: { contest: Contest }) {
                 <QHeader>
                   {q.title ?? `Over/Under ${fmtPts(q.line)} — ${q.label}`}
                 </QHeader>
-                <span className="flex items-center gap-2 text-xs font-semibold text-fog">
+                <span className="flex flex-wrap items-center gap-2 text-xs font-semibold text-fog">
                   OVER <PointsChip points={q.overPoints} /> UNDER{" "}
                   <PointsChip points={q.underPoints} />
                   {q.exactPoints != null && (

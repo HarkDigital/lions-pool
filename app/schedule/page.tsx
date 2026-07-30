@@ -18,7 +18,7 @@ import {
 } from "@/lib/store";
 import { teamInfo } from "@/lib/teams";
 import { fmtGameDay, fmtKickoff } from "@/lib/format";
-import { Card, Pill, SectionTitle } from "@/components/ui";
+import { Card, Pill, STATUS_TONE, SectionTitle } from "@/components/ui";
 import { TeamLogo } from "@/components/TeamLogo";
 
 /** Right-rail status for a week: final score, open slate, or nothing yet. */
@@ -55,7 +55,7 @@ function StatusRail({
   if (contest?.status === "open") {
     return (
       <div className="flex flex-col items-start gap-1.5 sm:items-end">
-        <Pill tone="blue">Slate open</Pill>
+        <Pill tone={STATUS_TONE.open}>Slate open</Pill>
         <Link href="/" className="text-xs font-semibold text-sky hover:underline">
           Make your pick →
         </Link>
@@ -63,9 +63,9 @@ function StatusRail({
     );
   }
   if (contest?.status === "locked") {
-    return <Pill>Locked — grading soon</Pill>;
+    return <Pill tone={STATUS_TONE.locked}>Locked — grading soon</Pill>;
   }
-  return <Pill className="opacity-60">Slate drops soon</Pill>;
+  return <Pill>Slate drops soon</Pill>;
 }
 
 /** The tiny week-number block on the left edge of every card. */

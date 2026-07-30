@@ -28,15 +28,12 @@ import { gameForWeek } from "@/lib/schedule";
 import { teamInfo } from "@/lib/teams";
 import { computeStandings, type SeasonInput } from "@/lib/scoring";
 import { fmtDateTime, fmtGameDay, fmtKickoff, fmtPts } from "@/lib/format";
-import { Card, EmptyState, Pill, PointsChip, SectionTitle } from "@/components/ui";
+import { Card, EmptyState, Pill, PointsChip, STATUS_TONE, SectionTitle } from "@/components/ui";
 import { TeamLogo } from "@/components/TeamLogo";
 import { PickForm } from "@/components/PickForm";
 
 function statusPill(status: ContestStatus) {
-  if (status === "open") return <Pill tone="win">OPEN</Pill>;
-  if (status === "locked") return <Pill tone="gold">LOCKED</Pill>;
-  if (status === "graded") return <Pill tone="blue">GRADED</Pill>;
-  return <Pill>DRAFT</Pill>;
+  return <Pill tone={STATUS_TONE[status]}>{status.toUpperCase()}</Pill>;
 }
 
 function QHeader({ children }: { children: React.ReactNode }) {

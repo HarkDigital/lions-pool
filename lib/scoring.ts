@@ -14,6 +14,7 @@ import type {
   Question,
   SpreadQ,
   Submission,
+  TeamAbbr,
   UserWeekGrade,
   WeekResults,
 } from "./types";
@@ -66,12 +67,32 @@ function gradeMoneyline(
   };
 }
 
+/**
+ * Mother's math for derived-spread weeks: the side a winner+score pick lands
+ * on. Shared with the pick form so the preview, the stored answer, and the
+ * grade can never disagree.
+ */
+export function spreadSideFromScore(
+  q: SpreadQ,
+  pick: { lions: number; opp: number } | undefined,
+): TeamAbbr | null {
+  if (!pick) return null;
+  const favScore = q.favorite === "DET" ? pick.lions : pick.opp;
+  const dogScore = q.favorite === "DET" ? pick.opp : pick.lions;
+  return favScore - dogScore > q.line ? q.favorite : q.dog;
+}
+
 function gradeSpread(
   q: SpreadQ,
   answer: string | undefined,
   results: WeekResults,
+  scorePick?: Submission["scorePick"],
 ): LineItem | null {
-  if (results.lionsScore == null || results.oppScore == null || answer == null) return null;
+  if (results.lionsScore == null || results.oppScore == null) return null;
+  // Derived weeks never trust a stored side — the score IS the pick, so a
+  // side that contradicts the player's own score is impossible by design.
+  const picked = q.derived ? spreadSideFromScore(q, scorePick) : answer;
+  if (picked == null) return null;
   const favScore = q.favorite === "DET" ? results.lionsScore : results.oppScore;
   const dogScore = q.favorite === "DET" ? results.oppScore : results.lionsScore;
   const margin = favScore - dogScore;
@@ -79,7 +100,7 @@ function gradeSpread(
     return { label: `Push on the ${fmtPts(q.line)} line`, points: 0, kind: "question" };
   }
   const favCovers = margin > q.line;
-  const pickedFav = answer === q.favorite;
+  const pickedFav = picked === q.favorite;
   const correct = pickedFav === favCovers;
   const label = pickedFav
     ? `${teamInfo(q.favorite).short} −${fmtPts(q.line)} — ${correct ? "covered" : "no cover"}`
@@ -123,7 +144,7 @@ function gradeOverUnder(
     correct = actual < q.line;
     points = correct ? q.underPoints : 0;
   }
-  const word = answer === "exact" ? "Straight money on" : answer === "over" ? "Over" : "Under";
+  const word = answer === "exact" ? "Straight Money on" : answer === "over" ? "Over" : "Under";
   return {
     label: `${word} ${fmtPts(q.line)} (${q.label}: ${fmtPts(actual)}) — ${correct ? "hit" : "miss"}`,
     points,
@@ -155,14 +176,17 @@ function gradePickem(
   if (graded.length === 0) return [];
   const correct = graded.filter((g) => answer[g.id] === winners[g.id]).length;
   const n = graded.length;
+  // The sweep totals are about the FULL slate (2025 Week 15: all five games),
+  // not whatever subset happens to be graded so far.
+  const fullSlate = n === q.games.length;
   const items: LineItem[] = [];
-  if (correct === n && q.allCorrectTotal != null) {
+  if (fullSlate && correct === n && q.allCorrectTotal != null) {
     items.push({
       label: `Ran the table: ${n}/${n} correct`,
       points: q.allCorrectTotal,
       kind: "question",
     });
-  } else if (correct === 0 && q.allWrongTotal != null) {
+  } else if (fullSlate && correct === 0 && q.allWrongTotal != null) {
     items.push({
       label: `Perfectly wrong: 0/${n} — Mother pays out for the sweep`,
       points: q.allWrongTotal,
@@ -192,7 +216,7 @@ function isQuestionCorrect(
       return typeof a === "string" && a === actual;
     }
     case "spread": {
-      const item = gradeSpread(q, a as string | undefined, results);
+      const item = gradeSpread(q, a as string | undefined, results, sub.scorePick);
       return !!item && item.points > 0;
     }
     case "overUnder": {
@@ -239,6 +263,7 @@ export function gradeScoreBonuses(
   let someoneExactLions = false;
   let someoneExactOpp = false;
   const perfecto = new Set<string>();
+  const kod = new Set<string>();
   for (const s of withPick) {
     const p = s.scorePick!;
     if (p.lions === L && p.opp === O) {
@@ -253,6 +278,7 @@ export function gradeScoreBonuses(
       continue;
     }
     if (p.lions === O && p.opp === L && L !== O) {
+      kod.add(s.userId);
       add(s.userId, {
         label: "KISS OF DEATH — exact reverse of the final score",
         points: BONUS.KISS_OF_DEATH,
@@ -284,17 +310,19 @@ export function gradeScoreBonuses(
   }
 
   // Pass 2: closest-to, one award per side, only when nobody was exact on
-  // that side. Ties all cash.
+  // that side. Ties all cash. The kiss stands alone: a KOD pick can neither
+  // win closest-to nor block the legitimately-closest player.
   const sides: Array<{ exact: boolean; actual: number; get: (p: { lions: number; opp: number }) => number; label: string }> = [
     { exact: someoneExactLions, actual: L, get: (p) => p.lions, label: "Lions" },
     { exact: someoneExactOpp, actual: O, get: (p) => p.opp, label: "opponent" },
   ];
+  const inTheRunning = withPick.filter((s) => !kod.has(s.userId));
   for (const side of sides) {
     if (side.exact) continue;
     let best = Infinity;
-    for (const s of withPick) best = Math.min(best, Math.abs(side.get(s.scorePick!) - side.actual));
+    for (const s of inTheRunning) best = Math.min(best, Math.abs(side.get(s.scorePick!) - side.actual));
     if (!Number.isFinite(best)) continue;
-    for (const s of withPick) {
+    for (const s of inTheRunning) {
       const diff = Math.abs(side.get(s.scorePick!) - side.actual);
       if (diff === best) {
         add(s.userId, {
@@ -328,7 +356,7 @@ export function gradeWeek(
           break;
         }
         case "spread": {
-          const item = gradeSpread(q, a as string | undefined, results);
+          const item = gradeSpread(q, a as string | undefined, results, sub.scorePick);
           if (item) items.push(item);
           break;
         }

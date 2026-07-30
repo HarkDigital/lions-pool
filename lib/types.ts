@@ -46,6 +46,13 @@ export interface SpreadQ extends QBase {
   line: number; // positive, e.g. 7.5
   favoritePoints: number; // points for correctly taking the favorite to cover
   dogPoints: number; // points for correctly taking the dog (+line or outright win)
+  /**
+   * A "Mother does the math" week (2025 Weeks 16/18): players never declare
+   * a side. The side is derived from their winner+score pick's margin
+   * against the line — on the form AND in grading, so a stored side can
+   * never contradict the score.
+   */
+  derived?: boolean;
 }
 
 /**
@@ -64,6 +71,13 @@ export interface OverUnderQ extends QBase {
   underPoints: number;
   exactPoints?: number;
   source: "total" | "lionsMargin" | "stat";
+  /**
+   * Ask the player directly even though the graded actual is derived from
+   * the final score — an independently answered total prop (2025 Week 13).
+   * Without this, a "total"/"lionsMargin" question on a score-bonuses week
+   * is answered automatically by the player's score pick.
+   */
+  answeredByPlayer?: true;
 }
 
 /** Two-option prop bet ("Who has more passing yards — Goff or Hurts?"). */

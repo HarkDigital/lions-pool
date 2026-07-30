@@ -26,8 +26,8 @@ npm test       # grading-engine unit tests
 npm run build  # static export -> out/
 ```
 
-Pushing to `main` deploys via `.github/workflows/deploy.yml` (GitHub Pages,
-`NEXT_PUBLIC_BASE_PATH=/lions-pool`).
+Pushing to `main` deploys via `.github/workflows/deploy.yml` (GitHub Pages;
+the basePath is derived automatically from the repository name).
 
 ## Architecture
 

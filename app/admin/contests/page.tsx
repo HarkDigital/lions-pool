@@ -32,19 +32,13 @@ import { TEAMS, teamInfo } from "@/lib/teams";
 import { fmtDateTime, fmtPts } from "@/lib/format";
 import { AdminGate } from "@/components/AdminGate";
 import { TeamLogo } from "@/components/TeamLogo";
-import { Btn, Card, Pill, PointsChip, SectionTitle } from "@/components/ui";
+import { Btn, Card, Pill, PointsChip, SectionTitle, STATUS_TONE } from "@/components/ui";
 
 const INPUT =
   "w-full rounded-lg border border-edge bg-panel-2 px-3 py-2 text-sm text-chalk outline-none transition focus:border-honolulu/60";
 const LABEL = "mb-1 block text-xs font-semibold uppercase tracking-wider text-fog";
 
 const STATUSES: ContestStatus[] = ["draft", "open", "locked", "graded"];
-const STATUS_TONE: Record<ContestStatus, "default" | "blue" | "gold" | "win"> = {
-  draft: "default",
-  open: "blue",
-  locked: "gold",
-  graded: "win",
-};
 const KIND_LABEL: Record<Question["kind"], string> = {
   moneyline: "Moneyline",
   spread: "Spread",
@@ -311,7 +305,7 @@ function OverUnderEditor({ q, onChange }: { q: OverUnderQ; onChange: (q: OverUnd
           onChange={(underPoints) => onChange({ ...q, underPoints })}
         />
       </Field>
-      <Field label="Straight money pays (optional — exactly on the number)" className="sm:col-span-2">
+      <Field label="Straight Money pays (optional — exactly on the number)" className="sm:col-span-2">
         <OptNumInput
           value={q.exactPoints}
           onChange={(exactPoints) => onChange({ ...q, exactPoints })}
@@ -364,8 +358,12 @@ function PropEditor({ q, onChange }: { q: PropQ; onChange: (q: PropQ) => void })
 function PickemEditor({ q, onChange }: { q: PickemQ; onChange: (q: PickemQ) => void }) {
   const setGame = (i: number, patch: Partial<PickemGame>) =>
     onChange({ ...q, games: q.games.map((g, j) => (j === i ? { ...g, ...patch } : g)) });
-  const removeGame = (i: number) =>
+  const removeGame = (i: number) => {
+    // A pick’em with zero games would leave players nothing to answer and the
+    // slate unsubmittable — the last game stays.
+    if (q.games.length <= 1) return;
     onChange({ ...q, games: q.games.filter((_, j) => j !== i) });
+  };
   const addGame = () => {
     let n = q.games.length + 1;
     while (q.games.some((g) => g.id === `g${n}`)) n++;
@@ -394,9 +392,22 @@ function PickemEditor({ q, onChange }: { q: PickemQ; onChange: (q: PickemQ) => v
               }
             />
           </Field>
-          <Btn kind="danger" onClick={() => removeGame(i)} className="!px-3 !py-1.5 !text-xs">
-            Remove
-          </Btn>
+          <span
+            title={
+              q.games.length === 1
+                ? "A pick’em with no games is just a shrug. Remove the whole question instead."
+                : undefined
+            }
+          >
+            <Btn
+              kind="danger"
+              onClick={() => removeGame(i)}
+              disabled={q.games.length === 1}
+              className="!px-3 !py-1.5 !text-xs"
+            >
+              Remove
+            </Btn>
+          </span>
         </div>
       ))}
       <Btn kind="ghost" onClick={addGame} className="!px-3 !py-1.5 !text-xs">
@@ -506,7 +517,7 @@ function QuestionPreview({ q }: { q: Question }) {
           </span>
           {q.exactPoints != null && (
             <span className="flex items-center gap-2">
-              Straight money <PointsChip points={q.exactPoints} />
+              Straight Money <PointsChip points={q.exactPoints} />
             </span>
           )}
         </div>
@@ -826,10 +837,10 @@ function ContestBuilder() {
       setDraft(null);
       return;
     }
-    const d = clone(c);
-    // Auto-on: every week the Lions actually play carries score bonuses.
-    if (gameForWeek(selectedWeek) && !d.scoreBonuses) d.scoreBonuses = true;
-    setDraft(d);
+    // The draft mirrors the stored contest verbatim — a saved scoreBonuses:false
+    // stays false. The game-week default lives where contests are created
+    // (lib/demo-data.ts), not here.
+    setDraft(clone(c));
     setSavedNote(false);
   }, [hydrated, selectedWeek]);
 

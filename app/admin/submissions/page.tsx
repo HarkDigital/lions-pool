@@ -9,7 +9,7 @@
 import { Fragment, useState } from "react";
 import { AdminGate } from "@/components/AdminGate";
 import { TeamLogo } from "@/components/TeamLogo";
-import { Card, EmptyState, Pill, SectionTitle } from "@/components/ui";
+import { Card, EmptyState, Pill, STATUS_DOT, STATUS_TONE, SectionTitle } from "@/components/ui";
 import { CURRENT_WEEK, participant } from "@/lib/demo-data";
 import { fmtDateTime, fmtPts, signedPts } from "@/lib/format";
 import { ALL_WEEKS } from "@/lib/schedule";
@@ -60,7 +60,7 @@ function answerLines(contest: Contest, sub: Submission): string[] {
         if (a === "under")
           return `Under ${fmtPts(q.line)} — ${q.label} (pays ${fmtPts(q.underPoints)})`;
         if (a === "exact")
-          return `Straight money on ${fmtPts(q.line)} — ${q.label}${
+          return `Straight Money on ${fmtPts(q.line)} — ${q.label}${
             q.exactPoints != null ? ` (pays ${fmtPts(q.exactPoints)})` : ""
           }`;
         return a;
@@ -92,11 +92,16 @@ function scorePickText(p: ScorePick): string {
 
 // --- Status presentation ----------------------------------------------------
 
-const STATUS_META: Record<ContestStatus, { label: string; tone: "default" | "gold" | "win" | "loss"; dot: string }> = {
-  draft: { label: "Draft", tone: "default", dot: "bg-edge-2" },
-  open: { label: "Open", tone: "gold", dot: "bg-gold" },
-  locked: { label: "Locked", tone: "loss", dot: "bg-loss" },
-  graded: { label: "Graded", tone: "win", dot: "bg-win" },
+/* Labels are local; tones and dots come from the shared status maps so the
+   inbox agrees with the rest of the site about what each color means. */
+const STATUS_META: Record<
+  ContestStatus,
+  { label: string; tone: "default" | "blue" | "gold" | "win" | "loss"; dot: string }
+> = {
+  draft: { label: "Draft", tone: STATUS_TONE.draft, dot: STATUS_DOT.draft },
+  open: { label: "Open", tone: STATUS_TONE.open, dot: STATUS_DOT.open },
+  locked: { label: "Locked", tone: STATUS_TONE.locked, dot: STATUS_DOT.locked },
+  graded: { label: "Graded", tone: STATUS_TONE.graded, dot: STATUS_DOT.graded },
 };
 
 // --- Page -------------------------------------------------------------------
@@ -144,7 +149,7 @@ function SubmissionsInner() {
                   selected
                     ? "border-honolulu bg-honolulu/20 text-sky"
                     : dim
-                      ? "border-edge text-fog opacity-70 hover:opacity-100"
+                      ? "border-edge text-fog hover:text-silver"
                       : "border-edge-2 text-silver hover:text-chalk"
                 }`}
               >

@@ -15,6 +15,7 @@ import { useSyncExternalStore } from "react";
 import type { Contest, Submission, WeekResults } from "./types";
 import {
   CONTESTS,
+  DEMO_NOW,
   RESULTS,
   SUBMISSIONS,
   participant,
@@ -118,6 +119,15 @@ function localSubs(): Submission[] {
 }
 
 /**
+ * Players only. Mother doesn't pick — an admin row (stale localStorage, or
+ * any future write path) must never reach the grading engine, where a stray
+ * scorePick would corrupt Closest-To/Exacto for the whole field.
+ */
+export function playerSubmissions(subs: Submission[]): Submission[] {
+  return subs.filter((s) => !participant(s.userId)?.isAdmin);
+}
+
+/**
  * Baked demo submissions + anything saved in this browser. A local pick for
  * the same user+week replaces the baked one.
  */
@@ -126,7 +136,7 @@ export function effectiveSubmissions(week: number): Submission[] {
   const baked = SUBMISSIONS.filter(
     (s) => s.week === week && !local.some((l) => l.userId === s.userId),
   );
-  return [...baked, ...local];
+  return playerSubmissions([...baked, ...local]);
 }
 
 export function mySubmission(week: number, userId: string): Submission | undefined {
@@ -139,6 +149,17 @@ export function saveSubmission(sub: Submission) {
 }
 
 // --- Contests (admin builder overlay) ---------------------------------------
+
+/**
+ * The lock time is authoritative, not decoration: in by a minute you're in,
+ * late by a minute you lost your pick. Date.parse, NOT string comparison —
+ * DEMO_NOW carries seconds while lockAtUTC values omit them, so lexicographic
+ * order lies at the boundary. In production the same predicate runs
+ * server-side against the real clock.
+ */
+export function isContestOpen(c: Contest): boolean {
+  return c.status === "open" && Date.parse(DEMO_NOW) < Date.parse(c.lockAtUTC);
+}
 
 export function effectiveContests(): Contest[] {
   const local = readJSON<Contest[]>(KEYS.contests, []);

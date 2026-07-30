@@ -167,28 +167,28 @@ function BonusPills({ b }: { b: StandingsRow["bonuses"] }) {
   if (b.exacto > 0) {
     pills.push(
       <Pill key="e" tone="gold">
-        E&times;{b.exacto}
+        Exacto &times;{b.exacto}
       </Pill>,
     );
   }
   if (b.perfecto > 0) {
     pills.push(
       <Pill key="p" tone="gold">
-        P&times;{b.perfecto}
+        Perfecto &times;{b.perfecto}
       </Pill>,
     );
   }
   if (b.closest > 0) {
     pills.push(
       <Pill key="c" tone="blue">
-        C&times;{b.closest}
+        Closest-To &times;{b.closest}
       </Pill>,
     );
   }
   if (b.kod > 0) {
     pills.push(
       <Pill key="k" tone="loss">
-        KOD&times;{b.kod}
+        Kiss of Death &times;{b.kod}
       </Pill>,
     );
   }
@@ -368,18 +368,8 @@ export default function StandingsPage() {
                       return (
                         <Fragment key={row.userId}>
                           <tr
-                            role="button"
-                            tabIndex={0}
-                            aria-expanded={open}
-                            aria-controls={open ? `standings-detail-${row.userId}` : undefined}
                             onClick={() => toggle(row.userId)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
-                                toggle(row.userId);
-                              }
-                            }}
-                            className={`cursor-pointer border-b border-edge transition last:border-b-0 hover:bg-panel-2 focus:outline-none focus-visible:bg-panel-2 ${
+                            className={`cursor-pointer border-b border-edge transition last:border-b-0 hover:bg-panel-2 ${
                               open ? "bg-panel-2" : ""
                             }`}
                           >
@@ -392,7 +382,18 @@ export default function StandingsPage() {
                               </div>
                             </td>
                             <td className="px-4 py-3">
-                              <div className="flex items-center gap-2.5">
+                              <button
+                                type="button"
+                                aria-expanded={open}
+                                aria-controls={
+                                  open ? `standings-detail-${row.userId}` : undefined
+                                }
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggle(row.userId);
+                                }}
+                                className="flex cursor-pointer items-center gap-2.5 rounded focus-visible:outline-2 focus-visible:outline-sky"
+                              >
                                 <AvatarDot color={p.avatarColor} />
                                 <span className="font-semibold text-silver">{p.name}</span>
                                 {p.nickname && (
@@ -408,7 +409,7 @@ export default function StandingsPage() {
                                 >
                                   {"▸"}
                                 </span>
-                              </div>
+                              </button>
                             </td>
                             {weekNums.map((w) => {
                               const v = row.weekly[w];
@@ -485,7 +486,7 @@ export default function StandingsPage() {
                           <li key={r.userId} className="flex items-center gap-2.5 text-sm">
                             <AvatarDot color={p.avatarColor} />
                             <span className="font-semibold text-silver">{p.name}</span>
-                            <Pill tone="loss">KOD&times;{r.bonuses.kod}</Pill>
+                            <Pill tone="loss">Kiss of Death &times;{r.bonuses.kod}</Pill>
                           </li>
                         );
                       })}

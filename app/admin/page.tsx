@@ -42,11 +42,11 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub?: s
 function BonusChips({ row }: { row: StandingsRow }) {
   const chips: { label: string; tone: "gold" | "loss" }[] = [];
   if (row.bonuses.perfecto > 0)
-    chips.push({ label: `${row.bonuses.perfecto}× Perfecto`, tone: "gold" });
-  if (row.bonuses.exacto > 0) chips.push({ label: `${row.bonuses.exacto}× Exacto`, tone: "gold" });
+    chips.push({ label: `Perfecto ×${row.bonuses.perfecto}`, tone: "gold" });
+  if (row.bonuses.exacto > 0) chips.push({ label: `Exacto ×${row.bonuses.exacto}`, tone: "gold" });
   if (row.bonuses.closest > 0)
-    chips.push({ label: `${row.bonuses.closest}× Closest`, tone: "gold" });
-  if (row.bonuses.kod > 0) chips.push({ label: `${row.bonuses.kod}× Kiss of Death`, tone: "loss" });
+    chips.push({ label: `Closest-To ×${row.bonuses.closest}`, tone: "gold" });
+  if (row.bonuses.kod > 0) chips.push({ label: `Kiss of Death ×${row.bonuses.kod}`, tone: "loss" });
   if (chips.length === 0) return <span className="text-xs text-fog">—</span>;
   return (
     <span className="flex flex-wrap gap-1">

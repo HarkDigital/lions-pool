@@ -8,7 +8,7 @@ export function Footer() {
         <p className="text-xs font-semibold uppercase tracking-[0.25em] text-fog">
           Team · Win · Score — Don&apos;t Be an Idiot
         </p>
-        <p className="max-w-xl text-xs text-fog/70">
+        <p className="max-w-xl text-xs text-fog">
           Demo site for the 2026 season. Picks and standings shown here are simulated. Team names
           and logos belong to their respective clubs; this is a private, just-for-fun pool.
         </p>

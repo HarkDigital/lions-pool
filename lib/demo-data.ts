@@ -371,6 +371,8 @@ export const CONTESTS: Contest[] = [
         overPoints: 3,
         underPoints: 3,
         source: "total",
+        // Third of the "three props" — answered on its own, like 2025.
+        answeredByPlayer: true,
       },
     ],
     scoreBonuses: true,
@@ -437,6 +439,8 @@ export const CONTESTS: Contest[] = [
         line: 13.5,
         favoritePoints: 14,
         dogPoints: 12.5,
+        // "Don't tell me a side" — the side comes from the score pick.
+        derived: true,
       },
     ],
     scoreBonuses: true,
@@ -497,6 +501,8 @@ export const CONTESTS: Contest[] = [
         line: 3.5,
         favoritePoints: 14.5,
         dogPoints: 14.5,
+        // "Winner and score, one last time" — Mother does the math.
+        derived: true,
       },
     ],
     scoreBonuses: true,

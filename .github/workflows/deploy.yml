@@ -10,9 +10,11 @@ permissions:
   pages: write
   id-token: write
 
+# Queued runs are superseded, but an in-flight Pages deployment is never
+# cancelled partway through (matches GitHub's recommended Pages workflow).
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -27,7 +29,9 @@ jobs:
       - run: npm test
       - run: npm run build
         env:
-          NEXT_PUBLIC_BASE_PATH: /lions-pool
+          # Project Pages serve at /<repo-name>/ (case-sensitive); derive it
+          # so the basePath can never drift from the actual repo name.
+          NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: out

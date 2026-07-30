@@ -155,7 +155,7 @@ export default function RulesPage() {
               <tbody className="divide-y divide-edge">
                 <tr>
                   <td className="px-4 py-4 align-top sm:px-6">
-                    <span className="display text-2xl text-chalk">Closest To</span>
+                    <span className="display text-2xl text-chalk">Closest-To</span>
                   </td>
                   <td className="px-4 py-4 align-top">
                     <BonusChip points={BONUS.CLOSEST} tone="gold" />
@@ -236,8 +236,8 @@ export default function RulesPage() {
           </div>
           <p className="mt-5 max-w-3xl text-sm leading-relaxed text-silver">
             Nobody anywhere in the pool hit either score exactly. Your 31 is the nearest anyone
-            came to the Lions&rsquo; 32 &mdash; Closest To, +5. Your 6 is the nearest anyone
-            came to the Saints&rsquo; 7 &mdash; Closest To, +5. You did not nail a single number
+            came to the Lions&rsquo; 32 &mdash; Closest-To, +5. Your 6 is the nearest anyone
+            came to the Saints&rsquo; 7 &mdash; Closest-To, +5. You did not nail a single number
             and you still bank +10. That is the game within the game.
           </p>
           <ul className="mt-5 space-y-2 border-t border-edge pt-4 text-sm leading-relaxed text-silver">

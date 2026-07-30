@@ -13,6 +13,7 @@ import {
   gradeWeek,
   type SeasonInput,
 } from "./scoring";
+import { playerSubmissions } from "./store";
 import type {
   Contest,
   MoneylineQ,
@@ -209,6 +210,77 @@ describe("spread", () => {
   });
 });
 
+// --- Derived spread ("Mother does the math" weeks) ---------------------------
+
+describe("derived spread", () => {
+  // 2025 Week 16 template: LIONS −13.5, no side declared — winner + score only.
+  const DERIVED: SpreadQ = {
+    id: "dsp",
+    kind: "spread",
+    favorite: "DET",
+    dog: "NYG",
+    line: 13.5,
+    favoritePoints: 14,
+    dogPoints: 12.5,
+    derived: true,
+  };
+  const c = makeContest([DERIVED]);
+
+  it("a blowout score pick lands on the favorite and cashes when the cover holds", () => {
+    // DET 40–10 → margin 30 > 13.5 → favorite. Final 41–10: covered.
+    const g = gradeOne(c, makeResults(41, 10), makeSub("a", {}, { winner: "DET", lions: 40, opp: 10 }));
+    expect(g.total).toBe(14);
+  });
+
+  it("a tight score pick lands on the dog and cashes when the favorite misses the cover", () => {
+    // DET 20–17 → margin 3 < 13.5 → dog +13.5. Final 20–17: no cover.
+    const g = gradeOne(c, makeResults(20, 17), makeSub("a", {}, { winner: "DET", lions: 20, opp: 17 }));
+    expect(g.total).toBe(12.5);
+  });
+
+  it("never trusts a stored side that contradicts the score", () => {
+    // Stored answer says NYG +13.5, but the player's own score (DET 40–10)
+    // puts them on the favorite. Final DET 20–17 (no cover): Mother's math
+    // pays ZERO — the 12.5 dog points are impossible under the derived rules.
+    const g = gradeOne(
+      c,
+      makeResults(20, 17),
+      makeSub("a", { dsp: "NYG" }, { winner: "DET", lions: 40, opp: 10 }),
+    );
+    expect(g.total).toBe(0);
+  });
+
+  it("no score pick means the question simply is not graded", () => {
+    const g = gradeOne(c, makeResults(20, 17), makeSub("a", { dsp: "NYG" }));
+    expect(g.items).toHaveLength(0);
+  });
+
+  it("combo checks use the derived side too, not the stored answer", () => {
+    const PROP2: PropQ = {
+      id: "dpr",
+      kind: "prop",
+      question: "First touchdown scored by",
+      options: [
+        { key: "DET", label: "Lions" },
+        { key: "NYG", label: "Giants" },
+      ],
+      points: 3,
+    };
+    const comboC = makeContest([DERIVED, PROP2], {
+      comboBonus: { questionIds: ["dsp", "dpr"], allCorrectBonus: 5 },
+    });
+    // Score pick DET 40–10 → favorite; final 41–10 covers. Prop hits too.
+    // Combo pays even though the stored spread answer says the dog:
+    // 14 + 3 + 5 = 22.
+    const g = gradeOne(
+      comboC,
+      makeResults(41, 10, { dpr: "DET" }),
+      makeSub("a", { dsp: "NYG", dpr: "DET" }, { winner: "DET", lions: 40, opp: 10 }),
+    );
+    expect(g.total).toBe(22);
+  });
+});
+
 // --- Over / Under -----------------------------------------------------------
 
 describe("overUnder", () => {
@@ -401,6 +473,38 @@ describe("pickem", () => {
     );
     expect(g.total).toBe(8);
   });
+
+  it("one graded game right pays 4 — never the 25-point table-run total", () => {
+    const oneFinal = makeResults(null, null, { pk: { g1: "ATL" } });
+    const g = gradeOne(c, oneFinal, makeSub("a", { pk: { ...WINNERS } }));
+    expect(g.total).toBe(4);
+  });
+
+  it("one graded game wrong pays 0 — never the 30-point perfectly-wrong total", () => {
+    const oneFinal = makeResults(null, null, { pk: { g1: "ATL" } });
+    const g = gradeOne(
+      c,
+      oneFinal,
+      makeSub("a", { pk: { g1: "CHI", g2: "CLE", g3: "LAC", g4: "DAL", g5: "WSH" } }),
+    );
+    expect(g.total).toBe(0);
+  });
+
+  it("4-for-4 with one game not yet final pays 16 — the sweep waits for the full slate", () => {
+    const partial = makeResults(null, null, { pk: { g1: "ATL", g2: "BAL", g3: "KC", g4: "GB" } });
+    const g = gradeOne(c, partial, makeSub("a", { pk: { ...WINNERS } }));
+    expect(g.total).toBe(16);
+  });
+
+  it("0-for-4 with one game not yet final pays 0 — the wrong-sweep waits too", () => {
+    const partial = makeResults(null, null, { pk: { g1: "ATL", g2: "BAL", g3: "KC", g4: "GB" } });
+    const g = gradeOne(
+      c,
+      partial,
+      makeSub("a", { pk: { g1: "CHI", g2: "CLE", g3: "LAC", g4: "DAL", g5: "WSH" } }),
+    );
+    expect(g.total).toBe(0);
+  });
 });
 
 // --- Combo bonus ------------------------------------------------------------
@@ -529,6 +633,27 @@ describe("score bonuses", () => {
     expect((map.get("near") ?? []).reduce((t, i) => t + i.points, 0)).toBe(5);
   });
 
+  it("a kiss of death pick never wins closest-to and never blocks it — the kiss stands alone", () => {
+    // Final 21–20. X's reversed 20–21 is off by 1 on BOTH sides, but the
+    // kiss stands alone: X collects only the −20, and closest-to goes to
+    // the legitimately-closest players (Z off 7 on the Lions, Y off 10 on
+    // the opponent).
+    const map = gradeScoreBonuses(bonusC, makeResults(21, 20), [
+      pick("x", "CHI", 20, 21),
+      pick("y", "DET", 35, 10),
+      pick("z", "DET", 28, 3),
+    ]);
+    const x = map.get("x") ?? [];
+    expect(x).toHaveLength(1);
+    expect(x[0].points).toBe(-20);
+    const y = map.get("y") ?? [];
+    const z = map.get("z") ?? [];
+    expect(y.map((i) => i.bonusType)).toEqual(["closest"]);
+    expect(y[0].label).toMatch(/opponent/);
+    expect(z.map((i) => i.bonusType)).toEqual(["closest"]);
+    expect(z[0].label).toMatch(/Lions/);
+  });
+
   it("a reversed-but-tied score is NOT a kiss of death — it is a perfecto", () => {
     // The reverse of 20–20 is 20–20. That is nailing the final score.
     const map = gradeScoreBonuses(bonusC, makeResults(20, 20), [pick("t", "DET", 20, 20)]);
@@ -582,6 +707,35 @@ describe("score bonuses", () => {
     const off = makeContest([], { scoreBonuses: false });
     const map = gradeScoreBonuses(off, makeResults(32, 7), [pick("a", "DET", 32, 7)]);
     expect(map.size).toBe(0);
+  });
+});
+
+// --- Players only: Mother doesn't pick, Mother grades ------------------------
+
+describe("playerSubmissions", () => {
+  const bonusC = makeContest([], { scoreBonuses: true });
+  const pick = (userId: string, winner: string, lions: number, opp: number) =>
+    makeSub(userId, {}, { winner, lions, opp });
+
+  it("drops admin rows and keeps every player row", () => {
+    const subs = [pick("mother", "DET", 34, 24), pick("bigcat", "DET", 32, 20)];
+    expect(playerSubmissions(subs).map((s) => s.userId)).toEqual(["bigcat"]);
+  });
+
+  it("an admin scorePick can never suppress a real player's closest-to", () => {
+    // Final 34–17. Mother's 34–24 would be a Lions-side exacto and would
+    // suppress Closest-To for the field; filtered out, A's off-by-2 Lions
+    // call and B's off-by-1 opponent call both cash +5, and no bonus is
+    // ever awarded to "mother".
+    const subs = playerSubmissions([
+      pick("mother", "DET", 34, 24),
+      pick("a", "DET", 32, 20),
+      pick("b", "DET", 28, 16),
+    ]);
+    const map = gradeScoreBonuses(bonusC, makeResults(34, 17), subs);
+    expect(map.has("mother")).toBe(false);
+    expect((map.get("a") ?? []).map((i) => i.bonusType)).toEqual(["closest"]);
+    expect((map.get("b") ?? []).map((i) => i.bonusType)).toEqual(["closest"]);
   });
 });
 

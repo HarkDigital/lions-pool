@@ -26,7 +26,7 @@ import { teamInfo } from "@/lib/teams";
 import { fmtPts, signedPts } from "@/lib/format";
 import { AdminGate } from "@/components/AdminGate";
 import { TeamLogo } from "@/components/TeamLogo";
-import { Btn, Card, EmptyState, Pill, SectionTitle } from "@/components/ui";
+import { Btn, Card, EmptyState, Pill, SectionTitle, STATUS_TONE } from "@/components/ui";
 
 const INPUT =
   "w-full rounded-lg border border-edge bg-panel-2 px-3 py-2 text-sm text-chalk outline-none transition focus:border-honolulu/60";
@@ -59,21 +59,58 @@ function qLabel(q: Question): string {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Per-question gradability. ONE predicate decides whether the engine can
+// grade a question from the entered final score or whether Mother has to
+// type a per-question actual — and every gate on this page (the missing
+// list, which inputs render, the auto-graded caption, the preview/save
+// buttons) reads that same predicate, so the console asks for exactly what
+// lib/scoring will read.
+// ---------------------------------------------------------------------------
+
+/** True when lib/scoring grades `q` purely from the entered final score. */
+function gradedFromFinalScore(q: Question, contest: Contest): boolean {
+  switch (q.kind) {
+    case "moneyline":
+      // Only the Lions game itself resolves from the final score; a bonus
+      // moneyline on any other matchup needs its winner typed in.
+      return contest.hasLionsGame && q.options.some((o) => o.team === "DET");
+    case "spread":
+      // gradeSpread reads the entered final score, whatever week it is.
+      return true;
+    case "overUnder":
+      // "total" and "lionsMargin" derive from the final score; "stat" is
+      // a number Mother types in.
+      return q.source !== "stat";
+    default:
+      // Props and pick'ems are always typed in.
+      return false;
+  }
+}
+
+/** True when the console must collect the final score for this week. */
+function needsFinalScore(contest: Contest): boolean {
+  return (
+    contest.hasLionsGame || contest.questions.some((q) => gradedFromFinalScore(q, contest))
+  );
+}
+
 /** Everything the admin still has to type before the week can be saved. */
 function missingActuals(contest: Contest, r: WeekResults): string[] {
   const out: string[] = [];
-  if (contest.hasLionsGame && (r.lionsScore == null || r.oppScore == null)) {
+  if (needsFinalScore(contest) && (r.lionsScore == null || r.oppScore == null)) {
     out.push("the final score");
   }
   for (const q of contest.questions) {
-    if (q.kind === "overUnder" && q.source === "stat" && typeof r.values[q.id] !== "number") {
+    if (gradedFromFinalScore(q, contest)) continue;
+    if (q.kind === "overUnder" && typeof r.values[q.id] !== "number") {
       out.push(q.label);
     }
     if (q.kind === "prop" && typeof r.values[q.id] !== "string") {
       out.push(q.question);
     }
-    if (q.kind === "moneyline" && !contest.hasLionsGame && typeof r.values[q.id] !== "string") {
-      out.push("moneyline winner");
+    if (q.kind === "moneyline" && typeof r.values[q.id] !== "string") {
+      out.push(`winner of ${q.options.map((o) => o.team).join(" / ")}`);
     }
     if (q.kind === "pickem") {
       const v = r.values[q.id];
@@ -215,8 +252,8 @@ function GradingConsole() {
   };
 
   const missing = contest ? missingActuals(contest, draft) : [];
-  const scoresMissing =
-    !!contest?.hasLionsGame && (draft.lionsScore == null || draft.oppScore == null);
+  const scoreNeeded = !!contest && needsFinalScore(contest);
+  const scoresMissing = scoreNeeded && (draft.lionsScore == null || draft.oppScore == null);
 
   const runPreview = () => {
     if (!contest) return;
@@ -231,21 +268,10 @@ function GradingConsole() {
   };
 
   const needsInput = contest
-    ? contest.questions.filter(
-        (q) =>
-          (q.kind === "overUnder" && q.source === "stat") ||
-          q.kind === "prop" ||
-          q.kind === "pickem" ||
-          (q.kind === "moneyline" && !contest.hasLionsGame),
-      )
+    ? contest.questions.filter((q) => !gradedFromFinalScore(q, contest))
     : [];
   const autoGraded = contest
-    ? contest.questions.filter(
-        (q) =>
-          (q.kind === "moneyline" && contest.hasLionsGame) ||
-          q.kind === "spread" ||
-          (q.kind === "overUnder" && q.source !== "stat"),
-      )
+    ? contest.questions.filter((q) => gradedFromFinalScore(q, contest))
     : [];
 
   return (
@@ -296,19 +322,20 @@ function GradingConsole() {
                 </div>
               </div>
               {isGraded(contest.week, contest.status) && (
-                <Pill tone="win">graded — re-save to adjust</Pill>
+                <Pill tone={STATUS_TONE.graded}>graded — re-save to adjust</Pill>
               )}
             </div>
 
             <h4 className="display mb-3 text-lg">What actually happened</h4>
             <div className="space-y-4">
-              {contest.hasLionsGame && (
+              {scoreNeeded && (
                 <div className="grid max-w-lg gap-4 sm:grid-cols-2">
                   <div>
-                    <div className={LABEL}>
+                    <label htmlFor="grading-lions-score" className={LABEL}>
                       <TeamLogo abbr="DET" size={18} /> Lions final score
-                    </div>
+                    </label>
                     <input
+                      id="grading-lions-score"
                       type="number"
                       min={0}
                       step={1}
@@ -318,7 +345,7 @@ function GradingConsole() {
                     />
                   </div>
                   <div>
-                    <div className={LABEL}>
+                    <label htmlFor="grading-opp-score" className={LABEL}>
                       {opp ? (
                         <>
                           <TeamLogo abbr={opp} size={18} /> {teamInfo(opp).short} final score
@@ -326,8 +353,9 @@ function GradingConsole() {
                       ) : (
                         <>Opponent final score</>
                       )}
-                    </div>
+                    </label>
                     <input
+                      id="grading-opp-score"
                       type="number"
                       min={0}
                       step={1}
@@ -343,13 +371,17 @@ function GradingConsole() {
                 <div key={q.id} className="rounded-lg border border-edge bg-panel-2/50 p-4">
                   {q.kind === "overUnder" && (
                     <>
-                      <div className="mb-2 text-sm font-semibold text-silver">
+                      <label
+                        htmlFor={`grading-stat-${q.id}`}
+                        className="mb-2 block text-sm font-semibold text-silver"
+                      >
                         {q.label}{" "}
                         <span className="font-normal text-fog">
                           (the number was {fmtPts(q.line)})
                         </span>
-                      </div>
+                      </label>
                       <input
+                        id={`grading-stat-${q.id}`}
                         type="number"
                         step="any"
                         className={`${INPUT} max-w-40`}
