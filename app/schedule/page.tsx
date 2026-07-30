@@ -108,9 +108,6 @@ function ByeCard({
             No Lions game, but the pool still runs: a five-game slate from
             around the league. Attendance is not optional.
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Pill tone="gold">Pool still runs</Pill>
-          </div>
         </div>
         <div className="shrink-0">
           <StatusRail contest={contest} results={results} />
@@ -153,11 +150,12 @@ function GameCard({
             {game.venue} · {game.city}
             {game.country ? `, ${game.country}` : ""}
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Pill>{game.broadcast}</Pill>
-            {isMunich && <Pill tone="gold">International: Munich</Pill>}
-            {isThanksgiving && <Pill tone="gold">Thanksgiving</Pill>}
-          </div>
+          {(isMunich || isThanksgiving) && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {isMunich && <Pill tone="gold">International: Munich</Pill>}
+              {isThanksgiving && <Pill tone="gold">Thanksgiving</Pill>}
+            </div>
+          )}
         </div>
         <div className="shrink-0">
           <StatusRail contest={contest} results={results} />
