@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
 import { Barlow, Bebas_Neue } from "next/font/google";
 import "./globals.css";
 import { Nav } from "@/components/Nav";
@@ -20,15 +21,24 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${bebas.variable} ${barlow.variable}`}>
-      <body>
-        <Nav />
-        <main className="mx-auto w-full max-w-6xl px-4 pb-20 pt-8 sm:px-6">
-          <DemoNotice />
-          {children}
-        </main>
-        <Footer />
-      </body>
-    </html>
+    <ClerkProvider
+      appearance={{
+        variables: {
+          colorPrimary: "#0076b6",
+          colorBackground: "#0d141d",
+        },
+      }}
+    >
+      <html lang="en" className={`${bebas.variable} ${barlow.variable}`}>
+        <body>
+          <Nav />
+          <main className="mx-auto w-full max-w-6xl px-4 pb-20 pt-8 sm:px-6">
+            <DemoNotice />
+            {children}
+          </main>
+          <Footer />
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

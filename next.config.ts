@@ -1,12 +1,10 @@
 import type { NextConfig } from "next";
 
-// On GitHub Pages the site lives at https://<user>.github.io/<repo>/ — the
-// deploy workflow sets NEXT_PUBLIC_BASE_PATH=/<repo>. Locally it stays "".
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
-
+// Server build behind the Clerk gate, self-hosted on the VPS under pm2.
+// "standalone" emits a minimal server bundle (.next/standalone) that deploys
+// by rsync with no node_modules install on the box.
 const nextConfig: NextConfig = {
-  output: "export",
-  basePath,
+  output: "standalone",
   trailingSlash: true,
   images: { unoptimized: true },
 };

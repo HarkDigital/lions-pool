@@ -16,6 +16,7 @@
 // ---------------------------------------------------------------------------
 
 import { useSyncExternalStore } from "react";
+import { useClerk, useUser as useClerkUser } from "@clerk/nextjs";
 import type { Contest, Participant, PaymentRecord, Submission, WeekResults } from "./types";
 import {
   CONTESTS,
@@ -26,8 +27,14 @@ import {
   RESULTS,
   SUBMISSIONS,
 } from "./demo-data";
-import { LIVE_CONTESTS, LIVE_EVERYONE, LIVE_PLAYERS } from "./live-data";
+import { LIVE_CONTESTS, LIVE_EVERYONE, LIVE_PLAYERS, MOTHER } from "./live-data";
 import { DEFAULT_BONUS_VALUES, type BonusValues } from "./scoring";
+
+/** Clerk emails that ARE Mother Superior. Comma-separated, set at build. */
+const ADMIN_EMAILS = (process.env.NEXT_PUBLIC_ADMIN_EMAILS ?? "mike@hark.digital")
+  .split(",")
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
 
 // --- Area / mode -------------------------------------------------------------
 
@@ -182,10 +189,44 @@ export function useUserId(): string | null {
   return useSyncExternalStore(subscribe, getUserId, () => null);
 }
 
-export function useUser() {
+/**
+ * The signed-in participant.
+ *   DEMO: the localStorage character (pick-a-name sign-in).
+ *   LIVE: the Clerk session, and nothing else. Admin emails become Mother
+ *   Superior; everyone else is a provisional player until the roster/DB
+ *   milestone maps accounts to nicknames.
+ */
+export function useUser(): Participant | null {
   useStoreVersion();
-  const id = useUserId();
-  return id ? (poolParticipant(id) ?? null) : null;
+  const localId = useUserId();
+  const hydrated = useHydrated();
+  const { user: clerkUser, isLoaded } = useClerkUser();
+
+  if (!hydrated) return null;
+  if (isDemoArea()) return localId ? (poolParticipant(localId) ?? null) : null;
+
+  if (!isLoaded || !clerkUser) return null;
+  const email = clerkUser.primaryEmailAddress?.emailAddress?.toLowerCase();
+  if (email && ADMIN_EMAILS.includes(email)) return MOTHER;
+  return {
+    id: clerkUser.id,
+    name: clerkUser.fullName ?? email ?? "Member",
+    email,
+    nickname: "Unassigned",
+    avatarColor: "#78838d",
+  };
+}
+
+/** Area-aware sign-out for the Nav: Clerk in live, localStorage in demo. */
+export function useSignOut(): () => void {
+  const { signOut: clerkSignOut } = useClerk();
+  return () => {
+    if (isDemoArea()) {
+      signOut();
+    } else {
+      void clerkSignOut({ redirectUrl: "/sign-in" });
+    }
+  };
 }
 
 // --- Submissions ------------------------------------------------------------

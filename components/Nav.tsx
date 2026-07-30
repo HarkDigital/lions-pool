@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogoLockup } from "./LogoMark";
-import { publicName, signOut, useUser } from "@/lib/store";
+import { publicName, useSignOut, useUser } from "@/lib/store";
 
 const LINKS = [
   { href: "/", label: "This Week" },
@@ -16,6 +16,7 @@ const LINKS = [
 export function Nav() {
   const pathname = usePathname();
   const user = useUser();
+  const doSignOut = useSignOut();
 
   // Route-derived, so it is correct in the prerendered HTML of each area.
   const inDemo = /(^|\/)demo(\/|$)/.test(pathname);
@@ -97,7 +98,7 @@ export function Nav() {
                 {publicName(user)}
               </span>
               <button
-                onClick={signOut}
+                onClick={doSignOut}
                 className="rounded-lg border border-edge px-3 py-1.5 text-xs font-bold text-fog transition hover:border-edge-2 hover:text-silver"
               >
                 Sign out
@@ -105,7 +106,7 @@ export function Nav() {
             </>
           ) : (
             <Link
-              href={`${prefix}/login/`}
+              href={inDemo ? "/demo/login/" : "/sign-in"}
               className="rounded-lg bg-honolulu px-4 py-1.5 text-sm font-bold text-white transition hover:bg-honolulu-deep"
             >
               Enter the Pool

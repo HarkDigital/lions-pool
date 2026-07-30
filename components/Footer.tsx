@@ -11,7 +11,7 @@ export function Footer() {
       <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-3 px-4 text-center sm:px-6">
         <LogoMark height={30} />
         <p className="text-xs font-semibold uppercase tracking-[0.25em] text-fog">
-          Team. Win. Score. Don&apos;t Be an Idiot.
+          This Must Be The Pool
         </p>
         {inDemo && (
           <p className="max-w-xl text-xs text-fog">

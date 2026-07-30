@@ -35,9 +35,9 @@ export default function LoginPage() {
           </p>
         ) : (
           <p className="text-sm leading-relaxed text-silver">
-            Player accounts arrive with the backend: every member of the pool signs in with a real
-            account, and Mother Superior assigns every nickname. Until then, the Commissioner can
-            enter and set up the season; changes stay in this browser.
+            You came through the front door already; every visitor here is signed in with a real
+            account, and Mother Superior assigns every nickname. There is nothing to do on this
+            page anymore.
           </p>
         )}
       </Card>

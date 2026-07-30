@@ -8,9 +8,10 @@
     "start": "next start",
     "test": "vitest run",
     "lint": "next lint",
-    "deploy:vps": "next build && rsync -az --delete out/ lionspool-vps:/var/www/thelionspool/"
+    "deploy:vps": "bash scripts/deploy-vps.sh"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.6.3",
     "next": "^15.3.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
