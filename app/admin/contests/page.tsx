@@ -7,7 +7,6 @@
 // ---------------------------------------------------------------------------
 
 import { useEffect, useState, type ReactNode } from "react";
-import { AreaLink } from "@/components/AreaLink";
 import type {
   Contest,
   ContestStatus,
@@ -912,15 +911,6 @@ function ContestBuilder() {
           ) : (
             <Card className="p-6 text-sm text-fog">Pulling up the slate...</Card>
           )}
-
-          <div className="rounded-xl border border-honolulu/40 bg-honolulu/5 p-4 text-sm text-fog">
-            <span className="font-bold text-sky">Workflow:</span> build the slate here, flip it to
-            open, and when the final whistle blows take the numbers to the{" "}
-            <AreaLink href="/admin/grading/" className="text-sky underline">
-              Grading Console
-            </AreaLink>
-            . The engine does the rest.
-          </div>
         </div>
       </div>
     </div>
