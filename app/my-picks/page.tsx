@@ -267,15 +267,15 @@ export default function MyPicksPage() {
         <SectionTitle kicker="My picks">The House Line</SectionTitle>
         <EmptyState title="Mother Superior picks from her office.">
           <p>
-            The Commissioner publishes her picks as the house line, sets the lines, keeps the
-            books, and remembers everything. Her ledger lives in the Admin wing; the Nums belong
+            The Commissioner publishes the house line, sets the lines, keeps the
+            books, and remembers everything. The pick lives in the Admin wing; the Nums belong
             to the players.
           </p>
           <Link
             href="/admin/mother/"
             className="mt-3 inline-block font-bold text-gold hover:underline"
           >
-            Set her picks →
+            Set the picks →
           </Link>
         </EmptyState>
       </div>

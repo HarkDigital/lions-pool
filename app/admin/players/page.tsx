@@ -84,7 +84,7 @@ function PlayersInner() {
         <SectionTitle kicker="Mother Superior's Office">Players &amp; Nicknames</SectionTitle>
         <EmptyState title="No players yet">
           Accounts arrive with the backend. Until then the roster file is an empty folder, which
-          is exactly how Mother Superior likes her paperwork.
+          is exactly how Mother Superior likes the paperwork.
         </EmptyState>
       </div>
     );

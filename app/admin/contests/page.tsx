@@ -580,7 +580,7 @@ function SlatePreview({ contest }: { contest: Contest }) {
       {contest.blurb && <p className="mt-3 text-sm text-silver">{contest.blurb}</p>}
       {contest.motherSays && (
         <div className="mt-3">
-          <Pill tone="gold">Mother Superior Says: {contest.motherSays}</Pill>
+          <Pill tone="gold">Mother Superior's pick: {contest.motherSays}</Pill>
         </div>
       )}
       <div className="mt-4 space-y-3">
@@ -679,7 +679,7 @@ function WeekEditor({
             onChange={(e) => set({ blurb: e.target.value || undefined })}
           />
         </Field>
-        <Field label="Mother Superior Says (her own pick)">
+        <Field label="Mother Superior's pick">
           <input
             className={INPUT}
             value={draft.motherSays ?? ""}

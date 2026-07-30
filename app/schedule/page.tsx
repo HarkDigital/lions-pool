@@ -211,13 +211,6 @@ export default function SchedulePage() {
               );
             })}
           </div>
-
-          <Card className="mt-8 p-4 text-xs text-fog">
-            Schedule, venues, and team logos are sourced from the league. Kickoff
-            times can flex late in the season. When the league moves a game, the
-            slate moves with it, and Mother Superior does not send reminders.
-            Don&apos;t be an idiot.
-          </Card>
         </>
       )}
     </div>

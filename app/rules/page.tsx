@@ -73,7 +73,7 @@ export default function RulesPage() {
           </p>
           <p className="mt-3 max-w-3xl text-sm leading-relaxed text-silver">
             Yes, Mother Superior makes the lines herself. No, they are not Vegas. Stop
-            questioning her.
+            questioning Mother Superior.
           </p>
 
           <div className="mt-6 overflow-hidden rounded-xl border border-edge">
@@ -265,7 +265,7 @@ export default function RulesPage() {
               <Pill tone="blue">e.g. Lions &minus;10.5</Pill>
             </div>
             <p className="mt-2 text-sm leading-relaxed text-silver">
-              Mother Superior makes the lines. They are not Vegas. Stop questioning her. The
+              Mother Superior makes the lines. They are not Vegas. Stop questioning Mother Superior. The
               favorite has to cover; the dog cashes by keeping it close or winning outright.
               Each side pays its own number, and on some weeks you never declare a side at all:
               you pick winner and score like always, and Mother Superior does the math on where

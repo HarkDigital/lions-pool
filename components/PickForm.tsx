@@ -325,13 +325,13 @@ export function PickForm({ contest }: { contest: Contest }) {
         <div className="display text-2xl">Mother Superior picks from her office.</div>
         <p className="mt-2 text-sm text-fog">
           The house line goes up in the Admin wing and the whole pool reads it here. Set the
-          lines, publish her picks, keep the books, grade the week.
+          lines, publish the picks, keep the books, grade the week.
         </p>
         <Link
           href="/admin/mother/"
           className="mt-4 inline-flex items-center justify-center rounded-lg bg-honolulu px-5 py-2.5 text-sm font-bold text-white transition hover:bg-honolulu-deep"
         >
-          Set her picks
+          Set the picks
         </Link>
       </Card>
     );

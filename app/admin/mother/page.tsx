@@ -155,7 +155,7 @@ function Inner() {
           <div className="mt-5 space-y-4">
             <div>
               <div className="text-xs font-semibold uppercase tracking-[0.15em] text-fog">
-                Her winner
+                Winner
               </div>
               <div className="mt-2 flex flex-wrap gap-2">
                 {winnerBtn("DET", "Lions win")}
@@ -208,7 +208,7 @@ function Inner() {
 
         <div className="mt-6 rounded-lg border border-gold/40 bg-gold/5 px-4 py-3">
           <div className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">
-            Mother Superior Says
+            Mother Superior's Pick
           </div>
           <div className="display mt-1 text-2xl text-chalk">
             {says || "Nothing yet. The pool waits."}
