@@ -254,16 +254,9 @@ export default function RulesPage() {
       {/* 4. Other slates -------------------------------------------------- */}
       <section className="space-y-4">
         <SectionTitle kicker="Rule Four">Other Slates Mother Superior Runs</SectionTitle>
-        <p className="max-w-3xl text-sm leading-relaxed text-silver">
-          The One Commandment never goes away. Some weeks, Mother Superior simply builds on top
-          of it.
-        </p>
         <div className="grid gap-4 sm:grid-cols-2">
           <Card className="p-5 sm:p-6">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="display text-2xl">Spreads</h3>
-              <Pill tone="blue">e.g. Lions &minus;10.5</Pill>
-            </div>
+            <h3 className="display text-2xl">Spreads</h3>
             <p className="mt-2 text-sm leading-relaxed text-silver">
               Mother Superior makes the lines. They are not Vegas. Stop questioning Mother Superior. The
               favorite has to cover; the dog cashes by keeping it close or winning outright.
@@ -274,10 +267,7 @@ export default function RulesPage() {
           </Card>
 
           <Card className="p-5 sm:p-6">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="display text-2xl">Over / Unders</h3>
-              <Pill tone="blue">The number</Pill>
-            </div>
+            <h3 className="display text-2xl">Over / Unders</h3>
             <p className="mt-2 text-sm leading-relaxed text-silver">
               A number on the combined score, or on the Lions&rsquo; margin of victory. Pick a
               side and get paid if you are right. Fair warning: some weeks your score pick
@@ -287,10 +277,7 @@ export default function RulesPage() {
           </Card>
 
           <Card className="p-5 sm:p-6">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="display text-2xl">Straight Money</h3>
-              <Pill tone="gold">The big payout</Pill>
-            </div>
+            <h3 className="display text-2xl">Straight Money</h3>
             <p className="mt-2 text-sm leading-relaxed text-silver">
               On over/under weeks, landing the combined score exactly on Mother
               Superior&rsquo;s number (not over, not under, <span className="italic">on it</span>)
@@ -300,10 +287,7 @@ export default function RulesPage() {
           </Card>
 
           <Card className="p-5 sm:p-6">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="display text-2xl">Prop Packs</h3>
-              <Pill tone="blue">Sweep bonus</Pill>
-            </div>
+            <h3 className="display text-2xl">Prop Packs</h3>
             <p className="mt-2 text-sm leading-relaxed text-silver">
               A handful of side questions (who throws for more, who finds the end zone
               first) worth a few points apiece. Sweep the whole pack and Mother Superior stacks
@@ -312,10 +296,7 @@ export default function RulesPage() {
           </Card>
 
           <Card className="p-5 sm:col-span-2 sm:p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h3 className="display text-2xl">Bye-Week Slates</h3>
-              <Pill tone="gold">The legendary rule</Pill>
-            </div>
+            <h3 className="display text-2xl">Bye-Week Slates</h3>
             <p className="mt-2 max-w-3xl text-sm leading-relaxed text-silver">
               The Lions rest. You do not. Five games from around the league, four points per
               correct pick. Run the table and the payout bumps. Go 0-for-5 (perfectly,
@@ -361,21 +342,6 @@ export default function RulesPage() {
           </Link>
         </Card>
       </section>
-
-      {/* 6. A note on tone ------------------------------------------------ */}
-      <Card className="p-6">
-        <div className="text-xs font-semibold uppercase tracking-[0.2em] text-fog">
-          A note on tone
-        </div>
-        <p className="mt-3 max-w-3xl text-sm leading-relaxed text-silver">
-          These rules date to the email era, when picks arrived in Mother Superior&rsquo;s inbox
-          and the rules arrived with considerably more texture. The full, unexpurgated originals
-          live in Mother Superior&rsquo;s archives, where they will remain. What you just read is
-          the family-friendly translation: nothing of substance was lost, but several adjectives
-          were harmed in the making of this page.
-        </p>
-        <p className="mt-4 text-sm font-semibold text-fog">Signed, Mother Superior</p>
-      </Card>
     </div>
   );
 }
