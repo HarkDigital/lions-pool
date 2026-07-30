@@ -27,7 +27,7 @@ import {
   RESULTS,
   SUBMISSIONS,
 } from "./demo-data";
-import { LIVE_CONTESTS, LIVE_EVERYONE, LIVE_PLAYERS, MOTHER } from "./live-data";
+import { LIVE_CONTESTS, MOTHER } from "./live-data";
 import { DEFAULT_BONUS_VALUES, type BonusValues } from "./scoring";
 
 /** Clerk emails that ARE Mother Superior. Comma-separated, set at build. */
@@ -86,14 +86,47 @@ function bakedResults(): WeekResults[] {
   return isDemoArea() ? RESULTS : [];
 }
 
-/** The playing roster for the current area (live: empty until the backend). */
+// --- Live roster (real Clerk members, fetched from /api/roster) --------------
+// The live pool's players are the signed-up Clerk users. The roster is fetched
+// once per session by <RosterSync/> and cached here; poolPlayers() reads the
+// cache. Nicknames live in Clerk metadata and are edited through the API.
+
+let liveRoster: Participant[] | null = null;
+let rosterFetched = false;
+
+export async function refreshRoster(): Promise<void> {
+  try {
+    const res = await fetch("/api/roster", { cache: "no-store" });
+    if (!res.ok) return;
+    const { players } = (await res.json()) as { players: Partial<Participant>[] };
+    liveRoster = players.map((p) => ({
+      id: p.id!,
+      name: p.name ?? "",
+      email: p.email,
+      nickname: p.nickname ?? "",
+      avatarColor: p.avatarColor ?? "#78838d",
+    }));
+    emit();
+  } catch {
+    /* offline or unauthorized: leave the cache as-is */
+  }
+}
+
+/** Kick off the one-time roster fetch in the live area (no-op in demo/SSR). */
+export function ensureRoster(): void {
+  if (isDemoArea() || typeof window === "undefined" || rosterFetched) return;
+  rosterFetched = true;
+  void refreshRoster();
+}
+
+/** The playing roster for the current area. */
 export function poolPlayers(): Participant[] {
-  return isDemoArea() ? PLAYERS : LIVE_PLAYERS;
+  return isDemoArea() ? PLAYERS : (liveRoster ?? []);
 }
 
 /** Roster including the Commissioner. */
 export function poolEveryone(): Participant[] {
-  return isDemoArea() ? EVERYONE : LIVE_EVERYONE;
+  return isDemoArea() ? EVERYONE : [MOTHER, ...(liveRoster ?? [])];
 }
 
 export function poolParticipant(id: string): Participant | undefined {
@@ -340,8 +373,19 @@ export function selfName(p: Participant): string {
 }
 
 export function saveNickname(userId: string, nickname: string) {
-  const overlay = readJSON<Record<string, string>>(k("nicknames"), {});
-  writeJSON(k("nicknames"), { ...overlay, [userId]: nickname });
+  if (isDemoArea()) {
+    const overlay = readJSON<Record<string, string>>(k("nicknames"), {});
+    writeJSON(k("nicknames"), { ...overlay, [userId]: nickname });
+    return;
+  }
+  // Live: persist to Clerk metadata via the API, then refresh the cache.
+  void fetch("/api/roster", {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ userId, nickname }),
+  }).then((res) => {
+    if (res.ok) void refreshRoster();
+  });
 }
 
 // --- Mother Superior's weekly picks ------------------------------------------

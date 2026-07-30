@@ -5,6 +5,7 @@ import "./globals.css";
 import { Nav } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
 import { DemoNotice } from "@/components/DemoNotice";
+import { RosterSync } from "@/components/RosterSync";
 
 const bebas = Bebas_Neue({ weight: "400", subsets: ["latin"], variable: "--font-bebas" });
 const barlow = Barlow({
@@ -33,6 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Flex column pins the footer to the viewport bottom on short pages. */}
         <body className="flex min-h-dvh flex-col">
           <div aria-hidden className="aurora-layer" />
+          <RosterSync />
           <Nav />
           <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-20 pt-8 sm:px-6">
             <DemoNotice />
