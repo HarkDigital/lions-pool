@@ -16,7 +16,7 @@ import { paymentFor, poolPlayers, publicName, savePayment, useStoreVersion } fro
 import type { Participant } from "@/lib/types";
 
 const NOTE_INPUT =
-  "w-52 rounded-lg border border-edge bg-panel-2 px-3 py-1.5 text-xs text-chalk outline-none transition placeholder:text-fog focus:border-honolulu/60";
+  "w-40 rounded-lg border border-edge bg-panel-2 px-3 py-1.5 text-xs text-chalk outline-none transition placeholder:text-fog focus:border-honolulu/60 sm:w-52";
 
 export default function PaymentsPage() {
   return (

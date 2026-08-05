@@ -46,7 +46,9 @@ export function Nav() {
     return pathname.startsWith(full.replace(/\/$/, ""));
   };
 
-  // One nav model shared by the desktop bar and the mobile menu.
+  // One nav model shared by the desktop bar and the mobile menu. The demo
+  // area is currently closed to everyone (middleware bounces /demo/*), so
+  // no Demo/Exit Demo entry renders; restore it here if the demo reopens.
   const items: Item[] = [
     ...LINKS.map((l) => ({ href: `${prefix}${l.href}`, label: l.label, active: isActive(l.href) })),
     ...(user?.isAdmin
@@ -59,22 +61,19 @@ export function Nav() {
           },
         ]
       : []),
-    ...(inDemo
-      ? [{ href: "/", label: "Exit Demo", active: false, gold: true }]
-      : user?.isAdmin
-        ? [{ href: "/demo/", label: "Demo", active: pathname.startsWith("/demo"), gold: true }]
-        : []),
   ];
 
+  // Uppercase and white across the board; the active pill's background tint
+  // (blue for the pool, gold for the office) carries the state.
   const deskClass = (l: Item) =>
-    `rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
+    `rounded-lg px-3 py-1.5 text-sm font-semibold uppercase tracking-wide text-white transition ${
       l.active
         ? l.gold
-          ? "bg-gold/15 text-gold"
-          : "bg-honolulu/15 text-sky"
+          ? "bg-gold/20"
+          : "bg-honolulu/25"
         : l.gold
-          ? "text-gold/70 hover:bg-panel-2 hover:text-gold"
-          : "text-fog hover:bg-panel-2 hover:text-silver"
+          ? "hover:bg-gold/10"
+          : "hover:bg-panel-2"
     }`;
 
   return (
@@ -153,21 +152,15 @@ export function Nav() {
 
       {/* Mobile dropdown menu */}
       {menuOpen && (
-        <nav className="border-t border-edge bg-pitch/95 px-4 pb-4 pt-2 backdrop-blur md:hidden">
+        <nav className="anim-rise border-t border-edge bg-pitch/95 px-4 pb-4 pt-2 backdrop-blur md:hidden">
           <div className="flex flex-col gap-1">
             {items.map((l) => (
               <Link
                 key={l.href + l.label}
                 href={l.href}
                 onClick={() => setMenuOpen(false)}
-                className={`rounded-lg px-3 py-2.5 text-sm font-semibold ${
-                  l.active
-                    ? l.gold
-                      ? "bg-gold/15 text-gold"
-                      : "bg-honolulu/15 text-sky"
-                    : l.gold
-                      ? "text-gold"
-                      : "text-silver"
+                className={`rounded-lg px-3 py-2.5 text-sm font-semibold uppercase tracking-wide text-white ${
+                  l.active ? (l.gold ? "bg-gold/20" : "bg-honolulu/25") : ""
                 }`}
               >
                 {l.label}

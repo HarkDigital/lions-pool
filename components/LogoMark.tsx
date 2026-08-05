@@ -3,8 +3,13 @@
  * provided by the Commissioner). Single-line wide lockup, 1035x153, built
  * for dark surfaces. Plain <img> needs the basePath prefixed by hand;
  * NEXT_PUBLIC_BASE_PATH is inlined at build time.
+ *
+ * Explicit width/height attributes matter: the SVG is sized by viewBox, and
+ * WebKit (iOS Safari) computes a broken intrinsic size for viewBox-only SVGs
+ * in an <img>, which once inflated the footer to several screens tall.
  */
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+const RATIO = 1034.8 / 153.3; // wide lockup aspect
 
 export function LogoMark({ height, className = "" }: { height?: number; className?: string }) {
   return (
@@ -12,6 +17,8 @@ export function LogoMark({ height, className = "" }: { height?: number; classNam
     <img
       src={`${BASE}/logo-wide.svg`}
       alt="The Lions Pool"
+      width={height ? Math.round(height * RATIO) : 1035}
+      height={height ?? 153}
       style={height ? { height, width: "auto" } : undefined}
       className={`inline-block w-auto ${className}`}
     />

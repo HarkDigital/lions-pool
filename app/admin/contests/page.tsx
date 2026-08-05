@@ -155,7 +155,9 @@ function Field({
   className?: string;
 }) {
   return (
-    <label className={`block ${className}`}>
+    // min-w-0: as a grid/flex item the field must be allowed to shrink below
+    // its control's intrinsic width (datetime-local on iOS is the offender).
+    <label className={`block min-w-0 ${className}`}>
       <span className={LABEL}>{label}</span>
       {children}
     </label>
@@ -308,13 +310,6 @@ function OverUnderEditor({ q, onChange }: { q: OverUnderQ; onChange: (q: OverUnd
           onChange={(underPoints) => onChange({ ...q, underPoints })}
         />
       </Field>
-      <Field label="Straight Money pays (optional, exactly on the number)" className="sm:col-span-2">
-        <OptNumInput
-          value={q.exactPoints}
-          onChange={(exactPoints) => onChange({ ...q, exactPoints })}
-          placeholder="Leave blank for no straight-money option"
-        />
-      </Field>
     </div>
   );
 }
@@ -377,7 +372,7 @@ function PickemEditor({ q, onChange }: { q: PickemQ; onChange: (q: PickemQ) => v
       {q.games.map((g, i) => (
         <div
           key={g.id}
-          className="grid items-end gap-3 rounded-lg border border-edge p-3 sm:grid-cols-[1fr_1fr_1fr_auto]"
+          className="grid items-end gap-3 rounded-lg border border-edge p-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto]"
         >
           <Field label="Away">
             <TeamSelect value={g.away} onChange={(away) => setGame(i, { away })} />
@@ -518,11 +513,6 @@ function QuestionPreview({ q }: { q: Question }) {
           <span className="flex items-center gap-2">
             Under <PointsChip points={q.underPoints} />
           </span>
-          {q.exactPoints != null && (
-            <span className="flex items-center gap-2">
-              Straight Money <PointsChip points={q.exactPoints} />
-            </span>
-          )}
         </div>
       )}
       {q.kind === "prop" && (
@@ -812,7 +802,7 @@ function WeekEditor({
           <span className="text-sm font-semibold text-win">
             {isDemoArea()
               ? "Saved to this browser (demo). Live version publishes to everyone."
-              : "Saved to this browser. Publishing to the whole pool arrives with the backend."}
+              : "Saved. Published to the whole pool."}
           </span>
         )}
       </div>

@@ -6,7 +6,9 @@
 // graded.
 // ---------------------------------------------------------------------------
 
-import { AreaLink as Link } from "@/components/AreaLink";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { AreaLink as Link, useAreaPrefix } from "@/components/AreaLink";
 import { Card, EmptyState, LoadingCard, Pill, SectionTitle } from "@/components/ui";
 import { TeamLogo } from "@/components/TeamLogo";
 import { fmtDateTime, fmtPts, fmtScore, ordinal, signedPts } from "@/lib/format";
@@ -55,11 +57,6 @@ function answerLines(q: Question, a: AnswerValue | undefined, graded: boolean): 
     }
     case "overUnder": {
       if (typeof a !== "string") return [];
-      if (a === "exact") {
-        return [
-          `Straight Money on ${fmtPts(q.line)}: ${q.label} (${pays} ${signedPts(q.exactPoints ?? 0)})`,
-        ];
-      }
       const over = a === "over";
       return [
         `${over ? "Over" : "Under"} ${fmtPts(q.line)}: ${q.label} (${pays} ${signedPts(over ? q.overPoints : q.underPoints)})`,
@@ -242,6 +239,14 @@ export default function MyPicksPage() {
   const hydrated = useHydrated();
   useStoreVersion();
   const user = useUser();
+  const router = useRouter();
+  const prefix = useAreaPrefix();
+  const isAdmin = user?.isAdmin === true;
+
+  // Mother Superior has no ledger: the office is the admin's My Picks.
+  useEffect(() => {
+    if (isAdmin) router.replace(`${prefix}/admin/mother/`);
+  }, [isAdmin, prefix, router]);
 
   // The prerender is area-agnostic: no data-bearing UI until the URL says
   // which pool (live vs demo) this is.
@@ -262,24 +267,8 @@ export default function MyPicksPage() {
   }
 
   if (user.isAdmin) {
-    return (
-      <div className="space-y-6">
-        <SectionTitle kicker="My picks">The House Line</SectionTitle>
-        <EmptyState title="Mother Superior picks from her office.">
-          <p>
-            The Commissioner publishes the house line, sets the lines, keeps the
-            books, and remembers everything. The pick lives in the Admin wing; the Nums belong
-            to the players.
-          </p>
-          <Link
-            href="/admin/mother/"
-            className="mt-3 inline-block font-bold text-gold hover:underline"
-          >
-            Set the picks →
-          </Link>
-        </EmptyState>
-      </div>
-    );
+    // The redirect above is in flight; hold a neutral frame, render no ledger.
+    return <LoadingCard label="Opening the office" />;
   }
 
   const contests = effectiveContests();

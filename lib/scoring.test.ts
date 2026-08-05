@@ -364,24 +364,18 @@ describe("overUnder", () => {
     line: 47,
     overPoints: 10.5,
     underPoints: 10.5,
-    exactPoints: 21,
     source: "total",
   };
   const moneyC = makeContest([MONEY_OU]);
 
-  it("Straight Money hits only when the total lands EXACTLY on the number", () => {
-    // 27 + 20 = 47 exactly.
-    expect(gradeOne(moneyC, makeResults(27, 20), makeSub("a", { xou: "exact" })).total).toBe(21);
-  });
-
   it("landing exactly on a whole-number line pays ZERO to an over pick (and to under)", () => {
-    // 47 is not over 47 and not under 47.
+    // 47 is not over 47 and not under 47. Exact score calls cash through the
+    // score bonuses, never through the O/U itself.
     expect(gradeOne(moneyC, makeResults(27, 20), makeSub("a", { xou: "over" })).total).toBe(0);
     expect(gradeOne(moneyC, makeResults(27, 20), makeSub("b", { xou: "under" })).total).toBe(0);
   });
 
-  it("Straight Money misses by one and gets nothing while over cashes", () => {
-    // 28 + 20 = 48.
+  it("a legacy 'exact' answer grades as no answer, not a crash", () => {
     expect(gradeOne(moneyC, makeResults(28, 20), makeSub("a", { xou: "exact" })).total).toBe(0);
     expect(gradeOne(moneyC, makeResults(28, 20), makeSub("b", { xou: "over" })).total).toBe(10.5);
   });

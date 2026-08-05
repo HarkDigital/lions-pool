@@ -6,7 +6,7 @@ import { LogoMark } from "@/components/LogoMark";
 // (the widget footer is hidden; the sign-up cross-link below is ours).
 export default function SignInPage() {
   return (
-    <div className="flex min-h-[calc(100dvh-7rem)] flex-col items-center justify-center gap-8">
+    <div className="flex min-h-[calc(100svh-7rem)] flex-col items-center justify-center gap-8">
       <LogoMark height={44} />
       <SignIn />
       <div className="flex w-full max-w-sm flex-col items-center gap-4">

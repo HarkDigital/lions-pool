@@ -62,10 +62,6 @@ function answerLines(contest: Contest, sub: Submission): string[] {
           return `Over ${fmtPts(q.line)} on ${q.label} (pays ${fmtPts(q.overPoints)})`;
         if (a === "under")
           return `Under ${fmtPts(q.line)} on ${q.label} (pays ${fmtPts(q.underPoints)})`;
-        if (a === "exact")
-          return `Straight Money on ${fmtPts(q.line)}, ${q.label}${
-            q.exactPoints != null ? ` (pays ${fmtPts(q.exactPoints)})` : ""
-          }`;
         return a;
       }
       case "prop": {
@@ -344,12 +340,6 @@ function SubmissionsInner() {
         </EmptyState>
       )}
 
-      <Card className="border-dashed p-4 text-xs leading-relaxed text-fog">
-        <span className="font-bold uppercase tracking-wider text-sky">How this works live: </span>
-        in the real thing, picks arrive through the site and lock automatically at kickoff. No
-        email chains, no texts at 12:58, no deciphering anyone&apos;s handwriting. The machine
-        stamps the time and slams the door. Mother Superior just reads.
-      </Card>
     </div>
   );
 }

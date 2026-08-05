@@ -9,6 +9,7 @@
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { AreaLink, useAreaPrefix } from "./AreaLink";
+import { ScrollRail } from "./ScrollRail";
 import { Card } from "./ui";
 import { isDemoArea, useHydrated, useUser } from "@/lib/store";
 
@@ -66,12 +67,12 @@ export function AdminGate({ children }: { children: ReactNode }) {
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-center gap-1 rounded-xl border border-edge bg-panel p-1.5">
+      <ScrollRail className="mb-6" railProps={{ "aria-label": "Admin sections" }}>
         {ADMIN_LINKS.map((l) => (
           <AreaLink
             key={l.href}
             href={l.href}
-            className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
+            className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
               isActive(l.href)
                 ? "bg-honolulu/15 text-sky"
                 : "text-fog hover:bg-panel-2 hover:text-silver"
@@ -80,7 +81,7 @@ export function AdminGate({ children }: { children: ReactNode }) {
             {l.label}
           </AreaLink>
         ))}
-      </div>
+      </ScrollRail>
       {children}
     </div>
   );

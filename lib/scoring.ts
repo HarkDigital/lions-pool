@@ -152,19 +152,12 @@ function gradeOverUnder(
 ): LineItem | null {
   const actual = actualForOverUnder(q, results);
   if (actual == null || answer == null) return null;
-  let correct = false;
-  let points = 0;
-  if (answer === "exact" && q.exactPoints != null) {
-    correct = actual === q.line;
-    points = correct ? q.exactPoints : 0;
-  } else if (answer === "over") {
-    correct = actual > q.line;
-    points = correct ? q.overPoints : 0;
-  } else if (answer === "under") {
-    correct = actual < q.line;
-    points = correct ? q.underPoints : 0;
-  }
-  const word = answer === "exact" ? "Straight Money on" : answer === "over" ? "Over" : "Under";
+  // Over and under are the only sides; an actual landing exactly on the
+  // line pays neither. (Legacy "exact" answers grade as no answer.)
+  if (answer !== "over" && answer !== "under") return null;
+  const correct = answer === "over" ? actual > q.line : actual < q.line;
+  const points = correct ? (answer === "over" ? q.overPoints : q.underPoints) : 0;
+  const word = answer === "over" ? "Over" : "Under";
   return {
     label: `${word} ${fmtPts(q.line)} (${q.label}: ${fmtPts(actual)}): ${correct ? "hit" : "miss"}`,
     points,

@@ -29,13 +29,16 @@ import {
   effectiveResults,
   effectiveSubmissions,
   isContestOpen,
+  mySubmission,
   poolParticipant,
   poolPlayers,
   publicName,
   useHydrated,
   useStoreVersion,
+  useUser,
 } from "@/lib/store";
 import { fmtPts, signedPts } from "@/lib/format";
+import { ScrollRail } from "@/components/ScrollRail";
 import { SeasonGraph, type GraphPlayer } from "@/components/SeasonGraph";
 import { Card, EmptyState, LoadingCard, Pill, SectionTitle } from "@/components/ui";
 
@@ -296,6 +299,7 @@ function BonusList({
 export default function NumsPage() {
   const hydrated = useHydrated();
   const version = useStoreVersion();
+  const user = useUser();
   const [openId, setOpenId] = useState<string | null>(null);
   const [tab, setTab] = useState<TabId>("table");
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -410,6 +414,8 @@ export default function NumsPage() {
   const week = currentWeek();
   const weekContest = effectiveContest(week);
   const weekOpen = weekContest != null && isContestOpen(weekContest);
+  const myPickIn =
+    user != null && !user.isAdmin && mySubmission(week, user.id) != null;
 
   const onTablistKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     const idx = TABS.findIndex((t) => t.id === tab);
@@ -428,11 +434,9 @@ export default function NumsPage() {
     <div className="space-y-10">
       <div>
         <SectionTitle kicker="Season to date">Nums</SectionTitle>
-        <div
-          role="tablist"
-          aria-label="Nums views"
-          onKeyDown={onTablistKeyDown}
-          className="mt-4 flex flex-wrap items-center gap-1"
+        <ScrollRail
+          className="mt-4"
+          railProps={{ role: "tablist", "aria-label": "Nums views", onKeyDown: onTablistKeyDown }}
         >
           {TABS.map((t, i) => {
             const active = tab === t.id;
@@ -449,7 +453,7 @@ export default function NumsPage() {
                 aria-controls={`nums-panel-${t.id}`}
                 tabIndex={active ? 0 : -1}
                 onClick={() => setTab(t.id)}
-                className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-sky ${
+                className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-sky ${
                   active ? "bg-honolulu/15 text-sky" : "text-fog hover:bg-panel-2 hover:text-chalk"
                 }`}
               >
@@ -457,7 +461,7 @@ export default function NumsPage() {
               </button>
             );
           })}
-        </div>
+        </ScrollRail>
       </div>
 
       {tab === "table" && (
@@ -788,7 +792,7 @@ export default function NumsPage() {
           href="/"
           className="rounded-lg bg-honolulu px-4 py-2 text-sm font-bold text-white transition hover:bg-honolulu-deep"
         >
-          {weekOpen ? "Make your pick" : "Go to the pool"}
+          {weekOpen ? (myPickIn ? "Edit your pick" : "Make your pick") : "Go to the pool"}
         </Link>
       </Card>
     </div>

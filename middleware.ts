@@ -5,9 +5,13 @@ import { NextResponse } from "next/server";
 // screen and nothing else — live area, demo area, admin, all of it.
 const isPublicRoute = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)"]);
 
-// Admin-only territory, server-enforced by email: the live admin wing AND
-// the entire demo simulation. Members see the season and nothing else.
-const isAdminOnlyRoute = createRouteMatcher(["/admin(.*)", "/demo(.*)"]);
+// Admin-only territory, server-enforced by email: the live admin wing.
+const isAdminOnlyRoute = createRouteMatcher(["/admin(.*)"]);
+
+// The demo simulation is closed to EVERYONE for now, admins included.
+// The code stays in the repo; delete this matcher (and restore the demo
+// entry in Nav.tsx) to reopen it.
+const isDemoRoute = createRouteMatcher(["/demo(.*)"]);
 
 const ADMIN_EMAILS = (process.env.NEXT_PUBLIC_ADMIN_EMAILS ?? "mike@hark.digital")
   .split(",")
@@ -20,6 +24,8 @@ const ADMIN_EMAILS = (process.env.NEXT_PUBLIC_ADMIN_EMAILS ?? "mike@hark.digital
 export default clerkMiddleware(
   async (auth, req) => {
     if (isPublicRoute(req)) return;
+    // Checked before auth: the bounce needs no Clerk round-trip.
+    if (isDemoRoute(req)) return NextResponse.redirect(new URL("/", req.url));
     const { userId } = await auth();
     if (!userId) {
       const url = new URL("/sign-in/", req.url);

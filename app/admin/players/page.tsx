@@ -9,11 +9,11 @@
 import { useRef, useState } from "react";
 import { AdminGate } from "@/components/AdminGate";
 import { Btn, Card, EmptyState, SectionTitle } from "@/components/ui";
-import { poolPlayers, publicName, saveNickname, useStoreVersion } from "@/lib/store";
+import { poolPlayers, saveNickname, useStoreVersion } from "@/lib/store";
 import type { Participant } from "@/lib/types";
 
 const INPUT =
-  "w-44 rounded-lg border border-edge bg-panel-2 px-3 py-1.5 text-sm font-semibold text-chalk outline-none transition focus:border-honolulu/60";
+  "w-36 rounded-lg border border-edge bg-panel-2 px-3 py-1.5 text-sm font-semibold text-chalk outline-none transition focus:border-honolulu/60 sm:w-44";
 
 export default function PlayersPage() {
   return (
@@ -26,7 +26,9 @@ export default function PlayersPage() {
 // --- One editable nickname per row ------------------------------------------
 
 function NicknameCell({ p }: { p: Participant }) {
-  const current = publicName(p);
+  // The raw assigned nickname only. The "Awaiting nickname" fallback is a
+  // placeholder here, never a value — nothing to erase before typing.
+  const current = (p.nickname ?? "").trim();
   const [value, setValue] = useState(current);
   const [saved, setSaved] = useState(false);
   const timer = useRef<number | null>(null);
@@ -55,6 +57,7 @@ function NicknameCell({ p }: { p: Participant }) {
         onKeyDown={(e) => {
           if (e.key === "Enter") save();
         }}
+        placeholder="Awaiting nickname"
         aria-label={`Nickname for ${p.name}`}
         className={INPUT}
       />
@@ -140,11 +143,6 @@ function PlayersInner() {
         </div>
       </Card>
 
-      <Card className="border-dashed p-4 text-xs leading-relaxed text-fog">
-        <span className="font-bold uppercase tracking-wider text-sky">Where nicknames go: </span>
-        a saved nickname takes effect immediately on the Nums, the home page, and My Picks. No
-        refresh, no waiting period, no appeals process.
-      </Card>
     </div>
   );
 }

@@ -17,7 +17,6 @@ export interface ScheduleGame {
   venue: string;
   city: string;
   country?: string; // set when not USA
-  broadcast: string;
   timeTBD?: boolean;
 }
 
@@ -61,7 +60,8 @@ export interface SpreadQ extends QBase {
  *  - "total": combined final score of the Lions game
  *  - "lionsMargin": Lions final score minus opponent final score
  *  - "stat": a number the admin enters at grading time (player props etc.)
- * `exactPoints` enables the "Straight Money" option (landing exactly on the line).
+ * A result landing exactly on the line pays neither side; exact score calls
+ * are rewarded by the score bonuses (Exacto/Perfecto), not the O/U.
  */
 export interface OverUnderQ extends QBase {
   kind: "overUnder";
@@ -69,7 +69,6 @@ export interface OverUnderQ extends QBase {
   line: number;
   overPoints: number;
   underPoints: number;
-  exactPoints?: number;
   source: "total" | "lionsMargin" | "stat";
   /**
    * Ask the player directly even though the graded actual is derived from

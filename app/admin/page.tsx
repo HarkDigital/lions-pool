@@ -213,56 +213,11 @@ function Dashboard() {
         />
         <StatCard
           label="Next lock"
-          value={current ? fmtDateTime(current.lockAtUTC) : "TBD"}
+          // The sub already says Eastern; the zone suffix (EDT/EST) is noise here.
+          value={current ? fmtDateTime(current.lockAtUTC).replace(/\s?E[DS]T$/, "") : "TBD"}
           sub="Kickoff, Eastern time. Obviously."
         />
       </div>
-
-      <Card className="p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="display text-2xl">Still ghosting Mother Superior</h3>
-          <Pill tone={!hasPlayers ? "default" : ghosts.length > 0 ? "loss" : "win"}>
-            {!hasPlayers
-              ? "Nobody to ghost"
-              : ghosts.length > 0
-                ? `${ghosts.length} missing`
-                : "All in"}
-          </Pill>
-        </div>
-        {!hasPlayers ? (
-          <p className="mt-4 text-sm text-fog">
-            No players yet. Accounts arrive with the backend. Mother Superior cannot be ghosted
-            by people who do not exist, and counts that a personal best.
-          </p>
-        ) : ghosts.length > 0 ? (
-          <>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {ghosts.map((p) => (
-                <span
-                  key={p.id}
-                  className="inline-flex items-center gap-2 rounded-full border border-edge-2 bg-panel-2 px-3 py-1.5 text-xs font-bold text-silver"
-                >
-                  <span
-                    className="inline-block h-2.5 w-2.5 rounded-full"
-                    style={{ background: p.avatarColor }}
-                  />
-                  {publicName(p)} ({p.name})
-                </span>
-              ))}
-            </div>
-            <p className="mt-4 text-sm text-fog">
-              The slate locks at kickoff, not kickoff-ish. Mother Superior does not chase, Mother
-              Superior does not remind twice, and a missing pick scores exactly what it deserves.
-              Don&apos;t be an idiot.
-            </p>
-          </>
-        ) : (
-          <p className="mt-4 text-sm text-fog">
-            Every pick is in before the deadline. Mother Superior is proud of no one, but is
-            always watching.
-          </p>
-        )}
-      </Card>
 
       <ScoringSettings />
 
@@ -315,7 +270,11 @@ function Dashboard() {
                         />
                         <span>
                           <span className="block font-bold text-chalk">{publicName(p)}</span>
-                          <span className="block text-xs text-silver">{p.name}</span>
+                          {/* Nameless Clerk accounts fall back to the email as
+                              their name; showing it twice helps nobody. */}
+                          {p.name && p.name !== p.email && (
+                            <span className="block text-xs text-silver">{p.name}</span>
+                          )}
                           {p.email && <span className="block text-xs text-fog">{p.email}</span>}
                         </span>
                       </span>

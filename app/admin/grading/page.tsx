@@ -512,7 +512,7 @@ function GradingConsole() {
               {savedNote && (
                 <span className="text-sm font-semibold text-win">
                   Week {contest.week} is in the books. The Nums and My Picks updated instantly.{" "}
-                  {isDemoArea() ? "Saved to this browser (demo)." : "Saved to this browser."}{" "}
+                  {isDemoArea() ? "Saved to this browser (demo)." : "Published to the whole pool."}{" "}
                   <AreaLink href="/nums/" className="text-sky underline">
                     See the Nums
                   </AreaLink>

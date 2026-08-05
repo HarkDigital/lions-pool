@@ -8,9 +8,9 @@ export function Footer() {
   const inDemo = /(^|\/)demo(\/|$)/.test(pathname);
   if (/^\/sign-(in|up)/.test(pathname)) return null;
   return (
-    <footer className="border-t border-edge py-10">
-      <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-3 px-4 text-center sm:px-6">
-        <LogoMark height={30} />
+    <footer className="mt-auto border-t border-edge py-6 sm:py-8">
+      <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-2.5 px-4 text-center sm:px-6">
+        <LogoMark height={26} />
         <p className="text-xs font-semibold uppercase tracking-[0.25em] text-fog">
           This Must Be The Pool
         </p>

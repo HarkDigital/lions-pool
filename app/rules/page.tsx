@@ -18,7 +18,7 @@ export default function RulesPage() {
         <div className="text-xs font-semibold uppercase tracking-[0.2em] text-sky">
           The house rules
         </div>
-        <h1 className="display mt-2 text-5xl sm:text-6xl">Here Dem&rsquo; Old Rules Again</h1>
+        <h1 className="display mt-2 text-5xl sm:text-6xl">Here Dem&rsquo; Old Rules</h1>
         <p className="mt-4 max-w-3xl text-sm leading-relaxed text-silver">
           Every week of the football season (except one), the Detroit Lions play an opponent.
           You, a participant in this pool, will tell Mother Superior who wins and exactly what
@@ -245,16 +245,6 @@ export default function RulesPage() {
               side and get paid if you are right. Fair warning: some weeks your score pick
               chooses your side automatically, so enter a score you actually believe in,
               not one you think is funny.
-            </p>
-          </Card>
-
-          <Card className="p-5 sm:p-6">
-            <h3 className="display text-2xl">Straight Money</h3>
-            <p className="mt-2 text-sm leading-relaxed text-silver">
-              On over/under weeks, landing the combined score exactly on Mother
-              Superior&rsquo;s number (not over, not under, <span className="italic">on it</span>)
-              pays roughly double either side. It almost never happens. That is precisely why
-              it is called Straight Money.
             </p>
           </Card>
 

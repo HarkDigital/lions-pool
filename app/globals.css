@@ -35,6 +35,9 @@
 
 /* The opaque canvas lives on <html> so the fixed aurora layer (a z-index:-10
    child of <body>) is not painted over. <body> itself stays transparent. */
+/* No scroll-behavior:smooth here: iOS Safari can wedge long pages in a
+   stuck-overscroll state with it (sticky nav displaced, a viewport of void
+   after the footer) — seen on the home and rules pages on real iPhones. */
 html {
   background:
     radial-gradient(1100px 500px at 50% -10%, rgba(0, 118, 182, 0.14), transparent 70%),
@@ -42,11 +45,29 @@ html {
   color-scheme: dark;
 }
 
+/* Form controls may never escape their containers. iOS Safari gives
+   datetime-local (and friends) an intrinsic min-width that ignores w-full
+   inside grid/flex tracks; these two rules make every engine behave. */
+input,
+select,
+textarea {
+  min-width: 0;
+  max-width: 100%;
+}
+input[type="datetime-local"],
+input[type="date"],
+input[type="time"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 2.375rem;
+}
+
 body {
   font-family: var(--font-body);
   color: var(--color-silver);
   background: transparent;
-  min-height: 100dvh;
+  /* svh, not dvh — see the layout.tsx note on the iOS massive-footer bug. */
+  min-height: 100svh;
 }
 
 /* In @layer components so Tailwind color utilities (utilities layer,
@@ -82,6 +103,50 @@ body {
 ::selection {
   background: var(--color-honolulu);
   color: white;
+}
+
+/* ---------------------------------------------------------------------------
+   Motion. One quiet entrance for content and small tactile touches; nothing
+   that moves layout after settle. Reduced-motion turns all of it off.
+--------------------------------------------------------------------------- */
+@layer components {
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* Single-element entrance (mobile menu, swapped-in panels). */
+  .anim-rise {
+    animation: rise 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Page reveal: the sections of every page rise in, gently staggered.
+     main > * is a page root (or the demo banner); its children are the
+     sections. Later-mounted children (tab panels, week editors) replay the
+     same entrance, which doubles as the content-swap transition. */
+  main > * > * {
+    animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  main > * > *:nth-child(1) { animation-delay: 30ms; }
+  main > * > *:nth-child(2) { animation-delay: 90ms; }
+  main > * > *:nth-child(3) { animation-delay: 150ms; }
+  main > * > *:nth-child(4) { animation-delay: 210ms; }
+  main > * > *:nth-child(5) { animation-delay: 270ms; }
+  main > * > *:nth-child(6) { animation-delay: 330ms; }
+  main > * > *:nth-child(n + 7) { animation-delay: 380ms; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .anim-rise,
+    main > * > * {
+      animation: none;
+    }
+  }
 }
 
 /* Clerk widget: the card footer carries vendor branding; the auth pages

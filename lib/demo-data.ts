@@ -239,9 +239,9 @@ export const CONTESTS: Contest[] = [
   },
   {
     week: 10,
-    title: "Munich: Over / Under / Straight Money",
+    title: "Munich: The Total",
     blurb:
-      "The Lions play the Patriots in Munich, Germany, at 9:30 in the morning like animals. THE NUMBER IS 47. Your score pick puts you Over, Under, or, if you land the combined total exactly on 47, Straight Money for the big payout.",
+      "The Lions play the Patriots in Munich, Germany, at 9:30 in the morning like animals. THE NUMBER IS 47. Your score pick puts you Over or Under. Land the combined total exactly on 47 and neither side pays, so nudge a point somewhere.",
     hasLionsGame: true,
     lockAtUTC: "2026-11-15T14:30Z",
     questions: [
@@ -252,7 +252,6 @@ export const CONTESTS: Contest[] = [
         line: 47,
         overPoints: 10.5,
         underPoints: 10.5,
-        exactPoints: 21,
         source: "total",
       },
     ],

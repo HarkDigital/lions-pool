@@ -14,8 +14,10 @@ import { ALL_WEEKS, BYE_WEEK, SEASON, gameForWeek } from "@/lib/schedule";
 import {
   allEffectiveResults,
   effectiveContests,
+  mySubmission,
   useHydrated,
   useStoreVersion,
+  useUser,
 } from "@/lib/store";
 import { teamInfo } from "@/lib/teams";
 import { fmtGameDay, fmtKickoff, fmtScore } from "@/lib/format";
@@ -30,6 +32,7 @@ function StatusRail({
   contest: Contest | undefined;
   results: WeekResults | undefined;
 }) {
+  const user = useUser();
   if (
     contest?.status === "graded" &&
     results &&
@@ -54,11 +57,13 @@ function StatusRail({
     );
   }
   if (contest?.status === "open") {
+    const hasPick =
+      user != null && !user.isAdmin && mySubmission(contest.week, user.id) != null;
     return (
       <div className="flex flex-col items-start gap-1.5 sm:items-end">
         <Pill tone={STATUS_TONE.open}>Slate open</Pill>
         <Link href="/" className="text-xs font-semibold text-sky hover:underline">
-          Make your pick →
+          {hasPick ? "Edit your pick →" : "Make your pick →"}
         </Link>
       </div>
     );
@@ -66,7 +71,7 @@ function StatusRail({
   if (contest?.status === "locked") {
     return <Pill tone={STATUS_TONE.locked}>Locked, grading soon</Pill>;
   }
-  return <Pill>Slate drops soon</Pill>;
+  return <Pill>Slate not open</Pill>;
 }
 
 /** The tiny week-number block on the left edge of every card. */

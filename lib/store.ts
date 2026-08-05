@@ -28,6 +28,7 @@ import {
   SUBMISSIONS,
 } from "./demo-data";
 import { LIVE_CONTESTS, MOTHER } from "./live-data";
+import { colorForId } from "./roster-color";
 import { DEFAULT_BONUS_VALUES, type BonusValues } from "./scoring";
 
 /** Clerk emails that ARE Mother Superior. Comma-separated, set at build. */
@@ -288,15 +289,19 @@ export function useUser(): Participant | null {
   if (!isLoaded || !clerkUser) return null;
   const email = clerkUser.primaryEmailAddress?.emailAddress?.toLowerCase();
   if (email && ADMIN_EMAILS.includes(email)) return MOTHER;
-  // Provisional member: no Commissioner-assigned nickname yet (empty, not a
-  // fake one) — publicName() renders the placeholder, selfName() their own
-  // account name.
+  // The member's own nickname: the fetched roster row is freshest; Clerk's
+  // client-side publicMetadata covers the window before the roster arrives.
+  // (This must never be hardcoded empty — players could not see their own
+  // Commissioner-assigned nickname.) name stays the account name: selfName()
+  // may show you your own name, publicName() never renders it to others.
+  const fromRoster = poolParticipant(clerkUser.id);
+  const metaNick = ((clerkUser.publicMetadata?.nickname as string | undefined) ?? "").trim();
   return {
     id: clerkUser.id,
     name: clerkUser.fullName ?? clerkUser.firstName ?? email ?? "Member",
     email,
-    nickname: "",
-    avatarColor: "#78838d",
+    nickname: fromRoster?.nickname?.trim() || metaNick,
+    avatarColor: fromRoster?.avatarColor ?? colorForId(clerkUser.id),
   };
 }
 

@@ -8,7 +8,7 @@
 
 import { AreaLink as Link } from "@/components/AreaLink";
 import { ExpandableText } from "@/components/ExpandableText";
-import type { ContestStatus, Question } from "@/lib/types";
+import type { Question } from "@/lib/types";
 import {
 
   bonusValues,  currentWeek,
@@ -30,17 +30,11 @@ import {
   Card,
   EmptyState,
   LoadingCard,
-  Pill,
   PointsChip,
-  STATUS_TONE,
   SectionTitle,
 } from "@/components/ui";
 import { TeamLogo } from "@/components/TeamLogo";
 import { PickForm } from "@/components/PickForm";
-
-function statusPill(status: ContestStatus) {
-  return <Pill tone={STATUS_TONE[status]}>{status.toUpperCase()}</Pill>;
-}
 
 function QHeader({ children }: { children: React.ReactNode }) {
   return (
@@ -114,12 +108,6 @@ function BoardQuestion({ q }: { q: Question }) {
           <div className="mt-3 space-y-2">
             <BoardRow label={<>OVER {fmtPts(q.line)}</>} points={q.overPoints} />
             <BoardRow label={<>UNDER {fmtPts(q.line)}</>} points={q.underPoints} />
-            {q.exactPoints != null && (
-              <BoardRow
-                label={<>STRAIGHT MONEY: exactly {fmtPts(q.line)}</>}
-                points={q.exactPoints}
-              />
-            )}
           </div>
           {q.source !== "stat" && (
             <p className="mt-2 text-xs text-fog">
@@ -223,7 +211,7 @@ export default function HomePage() {
     <div className="space-y-10">
       {/* --- Hero -------------------------------------------------------- */}
       <Card accent className="stripes overflow-hidden">
-        <div className="p-6 sm:p-10">
+        <div className="p-6 text-center sm:p-10 sm:text-left">
           <div className="text-xs font-semibold uppercase tracking-[0.3em] text-sky">
             Week {contest.week}
           </div>
@@ -233,7 +221,7 @@ export default function HomePage() {
           {away && home && <p className="mt-1 text-sm font-semibold text-fog">{contest.title}</p>}
 
           {game && away && home && (
-            <div className="mt-8 flex flex-wrap items-center gap-6 sm:gap-10">
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-6 sm:justify-start sm:gap-10">
               <div className="flex items-center gap-5 sm:gap-8">
                 <div className="flex flex-col items-center gap-2">
                   <TeamLogo abbr={away} size={104} />
@@ -253,13 +241,11 @@ export default function HomePage() {
                   {game.venue}, {game.city}
                   {game.country ? `, ${game.country}` : ""}
                 </div>
-                <div className="text-fog">On {game.broadcast}</div>
               </div>
             </div>
           )}
 
-          <div className="mt-8 flex flex-wrap items-center gap-3 border-t border-edge pt-4 text-sm text-silver">
-            {statusPill(contest.status)}
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3 border-t border-edge pt-4 text-sm text-silver sm:justify-start">
             <span>Picks lock at kickoff: {fmtDateTime(contest.lockAtUTC)}</span>
           </div>
         </div>
@@ -269,11 +255,9 @@ export default function HomePage() {
         /* --- Draft week: the slate hasn't been posted yet ---------------- */
         <Card className="p-6">
           <div className="display text-2xl text-fog">
-            Mother Superior hasn&apos;t posted this slate yet
+            Mother Superior hasn&apos;t posted this slate
           </div>
-          <p className="mt-2 text-sm text-fog">
-            The slate lands in your inbox when Mother Superior says it does.
-          </p>
+          <p className="mt-2 text-sm text-fog">You will be notified.</p>
         </Card>
       ) : (
         <>

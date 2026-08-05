@@ -31,7 +31,7 @@ import { TeamLogo } from "@/components/TeamLogo";
 
 // --- Local helpers ----------------------------------------------------------
 
-type OUAnswer = "over" | "under" | "exact";
+type OUAnswer = "over" | "under";
 
 interface Draft {
   winner: TeamAbbr | null;
@@ -74,14 +74,13 @@ function ouAnswerFromScore(
   opp: number,
 ): { value: number; answer: OUAnswer | null } {
   const value = q.source === "lionsMargin" ? lions - opp : lions + opp;
-  if (value === q.line) return { value, answer: q.exactPoints != null ? "exact" : null };
+  // Exactly on the line is neither side; the score bonuses reward exactness.
+  if (value === q.line) return { value, answer: null };
   return { value, answer: value > q.line ? "over" : "under" };
 }
 
 function ouPays(q: OverUnderQ, answer: OUAnswer): number {
-  if (answer === "over") return q.overPoints;
-  if (answer === "under") return q.underPoints;
-  return q.exactPoints ?? 0;
+  return answer === "over" ? q.overPoints : q.underPoints;
 }
 
 // --- Small presentational bits ----------------------------------------------
@@ -107,7 +106,7 @@ function OptionBtn({
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center justify-between gap-3 rounded-lg border px-4 py-3 text-left text-sm font-semibold transition ${
+      className={`flex items-center justify-between gap-3 rounded-lg border px-4 py-3 text-left text-sm font-semibold transition active:scale-[0.98] motion-reduce:active:scale-100 ${
         selected
           ? "border-honolulu bg-honolulu/15 text-chalk"
           : "border-edge bg-panel-2 text-silver hover:border-edge-2"
@@ -179,11 +178,8 @@ function answerLine(q: Question, sub: Submission): ReactNode {
       );
     }
     case "overUnder": {
-      if (a !== "over" && a !== "under" && a !== "exact") return missing;
-      const label =
-        a === "exact"
-          ? `Straight Money on ${fmtPts(q.line)}`
-          : `${a === "over" ? "Over" : "Under"} ${fmtPts(q.line)}`;
+      if (a !== "over" && a !== "under") return missing;
+      const label = `${a === "over" ? "Over" : "Under"} ${fmtPts(q.line)}`;
       return (
         <>
           <span className="text-silver">
@@ -338,23 +334,9 @@ export function PickForm({
     );
   }
 
-  if (user.isAdmin && !houseLine) {
-    return (
-      <Card accent className="p-6 text-center sm:p-8">
-        <div className="display text-2xl">Mother Superior picks from her office.</div>
-        <p className="mt-2 text-sm text-fog">
-          The house line goes up in the Admin wing and the whole pool reads it here. Set the
-          lines, publish the picks, keep the books, grade the week.
-        </p>
-        <Link
-          href="/admin/mother/"
-          className="mt-4 inline-flex items-center justify-center rounded-lg bg-honolulu px-5 py-2.5 text-sm font-bold text-white transition hover:bg-honolulu-deep"
-        >
-          Set the picks
-        </Link>
-      </Card>
-    );
-  }
+  // Admins pick from the office (/admin/mother/); the player form slot
+  // renders nothing for them on This Week.
+  if (user.isAdmin && !houseLine) return null;
 
   const existing = houseLine ? houseSubmission : mySubmission(contest.week, user.id);
   const isOpen = houseLine ? true : isContestOpen(contest);
@@ -381,12 +363,12 @@ export function PickForm({
       <Card className="p-6">
         <div className="display text-2xl text-fog">
           {contest.status === "draft"
-            ? "Mother Superior hasn't posted this slate yet"
+            ? "Mother Superior hasn't posted this slate"
             : "Picks are locked for this week"}
         </div>
         <p className="mt-2 text-sm text-fog">
           {contest.status === "draft"
-            ? "The slate lands in your inbox when Mother Superior says it does."
+            ? "You will be notified."
             : "Late by a minute, you lost your pick. Simple. Be on time."}
         </p>
       </Card>
@@ -655,11 +637,6 @@ export function PickForm({
                 <span className="flex flex-wrap items-center gap-2 text-xs font-semibold text-fog">
                   OVER <PointsChip points={q.overPoints} /> UNDER{" "}
                   <PointsChip points={q.underPoints} />
-                  {q.exactPoints != null && (
-                    <>
-                      STRAIGHT MONEY <PointsChip points={q.exactPoints} />
-                    </>
-                  )}
                 </span>
               </div>
               <div className="mt-3 rounded-lg border border-honolulu/40 bg-honolulu/10 px-4 py-3 text-sm text-silver">
@@ -668,16 +645,13 @@ export function PickForm({
                 ) : d.answer == null ? (
                   <>
                     Your score says: {fmtScore(lionsN!, oppN!)} → {noun} {fmtPts(d.value)}. That
-                    lands exactly on the line and there is no straight-money option this week.
-                    Nudge a point.
+                    lands exactly on the line, which pays neither side. Nudge a point.
                   </>
                 ) : (
                   <span className="flex flex-wrap items-center gap-2">
                     Your score says: {fmtScore(lionsN!, oppN!)} → {noun} {fmtPts(d.value)} →{" "}
                     <span className="font-bold text-chalk">
-                      {d.answer === "exact"
-                        ? `STRAIGHT MONEY on ${fmtPts(q.line)}`
-                        : `${d.answer.toUpperCase()} ${fmtPts(q.line)}`}
+                      {`${d.answer.toUpperCase()} ${fmtPts(q.line)}`}
                     </span>
                     , pays <PointsChip points={ouPays(q, d.answer)} />
                   </span>
@@ -689,7 +663,7 @@ export function PickForm({
         return (
           <section key={q.id}>
             <QHeader>{q.title ?? q.label}</QHeader>
-            <div className={`mt-3 grid gap-2 ${q.exactPoints != null ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
               <OptionBtn selected={draft.answers[q.id] === "over"} onClick={() => setAnswer(q.id, "over")}>
                 <span>OVER {fmtPts(q.line)}</span>
                 <PointsChip points={q.overPoints} />
@@ -698,12 +672,6 @@ export function PickForm({
                 <span>UNDER {fmtPts(q.line)}</span>
                 <PointsChip points={q.underPoints} />
               </OptionBtn>
-              {q.exactPoints != null && (
-                <OptionBtn selected={draft.answers[q.id] === "exact"} onClick={() => setAnswer(q.id, "exact")}>
-                  <span>STRAIGHT MONEY: exactly {fmtPts(q.line)}</span>
-                  <PointsChip points={q.exactPoints} />
-                </OptionBtn>
-              )}
             </div>
           </section>
         );
