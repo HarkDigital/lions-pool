@@ -129,7 +129,7 @@ function makeQuestion(kind: Question["kind"], week: number, existing: Question[]
       return {
         id,
         kind: "prop",
-        question: "More passing yards",
+        question: "",
         options: [
           { key: "optA", label: "Option A" },
           { key: "optB", label: "Option B" },
@@ -159,7 +159,7 @@ function questionLabel(q: Question): string {
     case "overUnder":
       return `O/U ${fmtPts(q.line)}: ${q.label}`;
     case "prop":
-      return q.question;
+      return (q.title && q.title.trim()) || q.question || "Prop";
     case "pickem":
       return `Pickum (${q.games.length} games)`;
   }
@@ -341,13 +341,6 @@ function PropEditor({ q, onChange }: { q: PropQ; onChange: (q: PropQ) => void })
     onChange({ ...q, options: q.options.map((o, j) => (j === i ? { ...o, ...patch } : o)) });
   return (
     <div className="grid gap-3">
-      <Field label="The pick">
-        <input
-          className={INPUT}
-          value={q.question}
-          onChange={(e) => onChange({ ...q, question: e.target.value })}
-        />
-      </Field>
       <div className="grid gap-3 sm:grid-cols-2">
         {q.options.map((o, i) => (
           <div key={i} className="rounded-lg border border-edge p-3">
@@ -541,7 +534,9 @@ function QuestionPreview({ q, scoreBonuses }: { q: Question; scoreBonuses: boole
       )}
       {q.kind === "prop" && (
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-silver">
-          <span className="text-fog">{q.question}:</span>
+          {((q.title && q.title.trim()) || q.question) && (
+            <span className="text-fog">{(q.title && q.title.trim()) || q.question}:</span>
+          )}
           {q.options.map((o) => (
             <span key={o.key} className="flex items-center gap-2">
               {o.label} <PointsChip points={q.points} />

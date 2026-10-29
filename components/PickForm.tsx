@@ -199,10 +199,12 @@ function answerLine(q: Question, sub: Submission): ReactNode {
     case "prop": {
       if (typeof a !== "string") return missing;
       const opt = q.options.find((o) => o.key === a);
+      const heading = (q.title && q.title.trim()) || q.question;
       return (
         <>
           <span className="text-silver">
-            {q.question}: <span className="font-semibold text-chalk">{opt?.label ?? a}</span>
+            {heading ? `${heading}: ` : ""}
+            <span className="font-semibold text-chalk">{opt?.label ?? a}</span>
           </span>
           <PointsChip points={q.points} />
         </>

@@ -190,11 +190,12 @@ function gradeOverUnder(
 function gradeProp(q: PropQ, answer: string | undefined, results: WeekResults): LineItem | null {
   const actual = results.values[q.id];
   if (typeof actual !== "string" || answer == null) return null;
-  if (answer === NO_PICK) return noPickItem(q.question);
+  const heading = (q.title && q.title.trim()) || q.question || "Prop";
+  if (answer === NO_PICK) return noPickItem(heading);
   const picked = q.options.find((o) => o.key === answer);
   const correct = answer === actual;
   return {
-    label: `${q.question} → ${picked?.label ?? answer}: ${correct ? "hit" : "miss"}`,
+    label: `${heading} → ${picked?.label ?? answer}: ${correct ? "hit" : "miss"}`,
     points: correct ? q.points : 0,
     kind: "question",
   };
