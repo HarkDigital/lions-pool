@@ -151,3 +151,85 @@ export async function dbSaveMotherPick(sub: Submission): Promise<void> {
     { w: sub.week, d: JSON.stringify(sub) },
   );
 }
+
+// --- Pick reminders ---------------------------------------------------------
+// Two small tables, created on first use (the app's DB user owns the schema):
+// each account's opt-in choice (no row = never asked), and one row per
+// (account, week) reminder, which is what keeps a week from sending twice.
+
+let reminderTables: Promise<void> | null = null;
+
+function ensureReminderTables(): Promise<void> {
+  reminderTables ??= (async () => {
+    await db().query(
+      `CREATE TABLE IF NOT EXISTS email_prefs (
+         user_id VARCHAR(191) NOT NULL PRIMARY KEY,
+         reminders TINYINT(1) NOT NULL,
+         updated_at VARCHAR(40) NOT NULL
+       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    );
+    await db().query(
+      `CREATE TABLE IF NOT EXISTS reminder_log (
+         user_id VARCHAR(191) NOT NULL,
+         week INT NOT NULL,
+         sent_at VARCHAR(40) NOT NULL,
+         PRIMARY KEY (user_id, week)
+       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    );
+  })().catch((e) => {
+    reminderTables = null; // retry on the next call rather than latch a failure
+    throw e;
+  });
+  return reminderTables;
+}
+
+/** true = opted in, false = opted out, null = never asked. */
+export async function dbGetReminderPref(userId: string): Promise<boolean | null> {
+  await ensureReminderTables();
+  const [rows] = await db().query("SELECT reminders FROM email_prefs WHERE user_id = :u", {
+    u: userId,
+  });
+  const arr = rows as Record<string, unknown>[];
+  return arr.length ? !!arr[0].reminders : null;
+}
+
+export async function dbSetReminderPref(userId: string, on: boolean): Promise<void> {
+  await ensureReminderTables();
+  await db().query(
+    `INSERT INTO email_prefs (user_id, reminders, updated_at) VALUES (:u, :on, :at)
+     ON DUPLICATE KEY UPDATE reminders = :on, updated_at = :at`,
+    { u: userId, on: on ? 1 : 0, at: new Date().toISOString() },
+  );
+}
+
+export async function dbGetReminderOptIns(): Promise<string[]> {
+  await ensureReminderTables();
+  const [rows] = await db().query("SELECT user_id FROM email_prefs WHERE reminders = 1");
+  return (rows as Record<string, unknown>[]).map((r) => r.user_id as string);
+}
+
+/** `${userId}:${week}` for every reminder already sent. */
+export async function dbGetRemindersSent(): Promise<Set<string>> {
+  await ensureReminderTables();
+  const [rows] = await db().query("SELECT user_id, week FROM reminder_log");
+  return new Set((rows as Record<string, unknown>[]).map((r) => `${r.user_id}:${r.week}`));
+}
+
+/** Reserve one (account, week) reminder. False if it was already taken, so
+ * two overlapping runs can never both send it. */
+export async function dbClaimReminder(userId: string, week: number): Promise<boolean> {
+  await ensureReminderTables();
+  const [res] = await db().query(
+    "INSERT IGNORE INTO reminder_log (user_id, week, sent_at) VALUES (:u, :w, :at)",
+    { u: userId, w: week, at: new Date().toISOString() },
+  );
+  return (res as mysql.ResultSetHeader).affectedRows === 1;
+}
+
+/** Give a claim back after a failed send, so the next run retries it. */
+export async function dbReleaseReminder(userId: string, week: number): Promise<void> {
+  await db().query("DELETE FROM reminder_log WHERE user_id = :u AND week = :w", {
+    u: userId,
+    w: week,
+  });
+}

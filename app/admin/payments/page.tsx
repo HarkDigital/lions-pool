@@ -8,12 +8,17 @@
 // rendering a bare table; with players present it is only ever paid or unpaid.
 // ---------------------------------------------------------------------------
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AdminGate } from "@/components/AdminGate";
+import { SortTh, sortRows, useSort } from "@/components/sort";
 import { Btn, Card, EmptyState, Pill, SectionTitle } from "@/components/ui";
 import { fmtDateTime } from "@/lib/format";
 import { paymentFor, poolPlayers, publicName, savePayment, useStoreVersion } from "@/lib/store";
 import type { Participant } from "@/lib/types";
+
+/** The season buy-in, per player. */
+const BUY_IN = 100;
+const usd = (n: number) => `$${n.toLocaleString("en-US")}`;
 
 const NOTE_INPUT =
   "w-40 rounded-lg border border-edge bg-panel-2 px-3 py-1.5 text-xs text-chalk outline-none transition placeholder:text-fog focus:border-honolulu/60 sm:w-52";
@@ -31,6 +36,13 @@ export default function PaymentsPage() {
 function PaymentRow({ p }: { p: Participant }) {
   const rec = paymentFor(p.id);
   const [note, setNote] = useState(rec.note ?? "");
+  // The roster (which renders the rows) and the pool (which holds the notes)
+  // arrive on separate fetches, so the stored note usually lands AFTER the
+  // row's first render. Follow it: otherwise the box reads empty after a
+  // reload, and a stray blur then saves that emptiness over the real note.
+  useEffect(() => {
+    setNote(rec.note ?? "");
+  }, [rec.note]);
 
   const toggle = () => {
     savePayment({
@@ -98,10 +110,13 @@ function PaymentRow({ p }: { p: Participant }) {
 
 // --- Page --------------------------------------------------------------------
 
+type PayCol = "player" | "status" | "marked" | "note";
+
 function PaymentsInner() {
   useStoreVersion();
   // AdminGate guarantees hydration, so the area-aware roster is safe to read.
   const players = poolPlayers();
+  const { sort, toggle } = useSort<PayCol>();
 
   if (players.length === 0) {
     return (
@@ -117,21 +132,51 @@ function PaymentsInner() {
 
   const paidCount = players.filter((p) => paymentFor(p.id).paid).length;
   const allIn = paidCount === players.length;
+  const sorted = sortRows(players, sort, {
+    player: (p) => publicName(p),
+    status: (p) => paymentFor(p.id).paid,
+    // The cell only shows a timestamp for paid rows; unpaid rows sort as blank.
+    marked: (p) => {
+      const rec = paymentFor(p.id);
+      return rec.paid ? rec.markedAtUTC : undefined;
+    },
+    note: (p) => paymentFor(p.id).note,
+  });
 
   return (
     <div className="space-y-6">
       <SectionTitle kicker="Mother Superior's Office">Payments</SectionTitle>
 
-      <Card className="flex flex-wrap items-center justify-between gap-3 p-5">
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.15em] text-fog">
-            Season buy-in
+      <Card className="flex flex-wrap items-center justify-between gap-6 p-5">
+        <div className="flex flex-wrap gap-x-10 gap-y-4">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.15em] text-fog">
+              Season buy-in
+            </div>
+            <div className="display mt-1 text-3xl">
+              Paid {paidCount}/{players.length}
+            </div>
+            <div className="mt-1 text-xs text-fog">{usd(BUY_IN)} per player</div>
           </div>
-          <div className="display mt-1 text-3xl">
-            Paid {paidCount}/{players.length}
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.15em] text-fog">
+              Collected
+            </div>
+            <div className="display mt-1 text-3xl text-win">{usd(paidCount * BUY_IN)}</div>
+            <div className="mt-1 text-xs text-fog">
+              of {usd(players.length * BUY_IN)} for the full pool
+            </div>
           </div>
-          <div className="mt-1 text-xs text-fog">
-            Mother Superior does not chase money twice.
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.15em] text-fog">
+              Outstanding
+            </div>
+            <div className={`display mt-1 text-3xl ${allIn ? "text-fog" : "text-loss"}`}>
+              {usd((players.length - paidCount) * BUY_IN)}
+            </div>
+            <div className="mt-1 text-xs text-fog">
+              {allIn ? "Nothing owed." : `${players.length - paidCount} still to collect`}
+            </div>
           </div>
         </div>
         <Pill tone={allIn ? "win" : "loss"}>
@@ -144,15 +189,23 @@ function PaymentsInner() {
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-edge text-xs uppercase tracking-wider text-fog">
-                <th className="px-4 py-3">Player</th>
-                <th className="px-4 py-3">Status</th>
+                <SortTh k="player" sort={sort} onSort={toggle} className="px-4 py-3">
+                  Player
+                </SortTh>
+                <SortTh k="status" sort={sort} onSort={toggle} className="px-4 py-3">
+                  Status
+                </SortTh>
                 <th className="px-4 py-3">Mark</th>
-                <th className="px-4 py-3">Marked</th>
-                <th className="px-4 py-3">Note</th>
+                <SortTh k="marked" sort={sort} onSort={toggle} className="px-4 py-3">
+                  Marked
+                </SortTh>
+                <SortTh k="note" sort={sort} onSort={toggle} className="px-4 py-3">
+                  Note
+                </SortTh>
               </tr>
             </thead>
             <tbody>
-              {players.map((p) => (
+              {sorted.map((p) => (
                 <PaymentRow key={p.id} p={p} />
               ))}
             </tbody>

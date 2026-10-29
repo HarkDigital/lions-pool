@@ -33,3 +33,10 @@ export const ALL_WEEKS = Array.from({ length: 18 }, (_, i) => i + 1);
 export function gameForWeek(week: number): ScheduleGame | undefined {
   return LIONS_SCHEDULE.find((g) => g.week === week);
 }
+
+/** True when a slate locks at the Lions kickoff; false when it locks earlier
+ *  (a multi-game slate locks at its first game) or the week has no Lions game. */
+export function locksAtKickoff(c: { week: number; lockAtUTC: string }): boolean {
+  const g = gameForWeek(c.week);
+  return !!g && Date.parse(g.dateUTC) === Date.parse(c.lockAtUTC);
+}

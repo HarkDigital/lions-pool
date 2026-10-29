@@ -1,17 +1,17 @@
 "use client";
 
 // ---------------------------------------------------------------------------
-// Nums: the season table, the movement graph, the bonus ledgers, and Shame.
+// Nums: the season table, the movement graph, and the bonus ledgers.
 // Every number on this page is computed live by lib/scoring.ts from graded
 // contests. There is no hand-entered table.
 // Public page: nicknames only, via publicName().
 // ---------------------------------------------------------------------------
 
 import { Fragment, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { AreaLink as Link } from "@/components/AreaLink";
 import {
   computeStandings,
   gradeWeek,
+  isBlankPick,
   rankProgression,
   type SeasonInput,
 } from "@/lib/scoring";
@@ -19,27 +19,26 @@ import type {
   LineItem,
   ScoreBonusType,
   StandingsRow,
+  Submission,
   UserWeekGrade,
+  WeekResults,
 } from "@/lib/types";
 import {
-
-  bonusValues,  currentWeek,
-  effectiveContest,
+  bonusValues,
   effectiveContests,
   effectiveResults,
   effectiveSubmissions,
-  isContestOpen,
-  mySubmission,
   poolParticipant,
   poolPlayers,
   publicName,
   useHydrated,
   useStoreVersion,
-  useUser,
 } from "@/lib/store";
-import { fmtPts, signedPts } from "@/lib/format";
+import { fmtPts, fmtScore, signedPts } from "@/lib/format";
+import { gameForWeek } from "@/lib/schedule";
 import { ScrollRail } from "@/components/ScrollRail";
 import { SeasonGraph, type GraphPlayer } from "@/components/SeasonGraph";
+import { SortTh, sortRows, useSort, type SortValue } from "@/components/sort";
 import { Card, EmptyState, LoadingCard, Pill, SectionTitle } from "@/components/ui";
 
 // --- Data assembly ----------------------------------------------------------
@@ -190,8 +189,36 @@ function lineItemLabelClass(item: LineItem): string {
   return item.points > 0 ? "text-silver" : "text-fog";
 }
 
-function WeekDetail({ week, grade }: { week: number; grade: UserWeekGrade | undefined }) {
+/** "DET 31-17" / "NO 27-20" / "Tie 20-20": winner first, the way the pool reads a score. */
+function calledScore(pick: NonNullable<Submission["scorePick"]>): string {
+  if (pick.winner === "DET") return `DET ${fmtScore(pick.lions, pick.opp)}`;
+  if (pick.lions === pick.opp) return `Tie ${fmtScore(pick.lions, pick.opp)}`;
+  return `${pick.winner} ${fmtScore(pick.opp, pick.lions)}`;
+}
+
+function finalScore(week: number, results: WeekResults | undefined): string | null {
+  if (!results || results.lionsScore == null || results.oppScore == null) return null;
+  const { lionsScore: l, oppScore: o } = results;
+  const opp = gameForWeek(week)?.opponent ?? "OPP";
+  if (l === o) return `Tie ${fmtScore(l, o)}`;
+  return l > o ? `DET ${fmtScore(l, o)}` : `${opp} ${fmtScore(o, l)}`;
+}
+
+function WeekDetail({
+  week,
+  grade,
+  sub,
+  results,
+}: {
+  week: number;
+  grade: UserWeekGrade | undefined;
+  /** The player's own submission for the week, for the score they called. */
+  sub?: Submission;
+  results?: WeekResults;
+}) {
   const total = grade?.total ?? 0;
+  const blank = sub ? isBlankPick(sub) : false;
+  const final = finalScore(week, results);
   return (
     <div className="rounded-lg border border-edge bg-panel p-3">
       <div className="mb-2 flex items-baseline justify-between gap-3 border-b border-edge pb-2">
@@ -206,7 +233,17 @@ function WeekDetail({ week, grade }: { week: number; grade: UserWeekGrade | unde
           {signedPts(total)}
         </span>
       </div>
-      {grade && grade.items.length > 0 ? (
+      {sub?.scorePick && !blank && (
+        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-xs">
+          <span className="text-silver">
+            Called <span className="font-semibold text-chalk">{calledScore(sub.scorePick)}</span>
+          </span>
+          {final && <span className="text-fog">Final {final}</span>}
+        </div>
+      )}
+      {blank ? (
+        <p className="text-xs text-fog">{"Filed as no pick (0-0). Zero points."}</p>
+      ) : grade && grade.items.length > 0 ? (
         <ul className="space-y-1.5">
           {grade.items.map((item, i) => (
             <li key={i} className="flex items-start justify-between gap-3 text-xs">
@@ -299,10 +336,11 @@ function BonusList({
 export default function NumsPage() {
   const hydrated = useHydrated();
   const version = useStoreVersion();
-  const user = useUser();
   const [openId, setOpenId] = useState<string | null>(null);
   const [tab, setTab] = useState<TabId>("table");
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const { sort, toggle: onSort } = useSort<string>();
+  const [query, setQuery] = useState("");
 
   const data = useMemo(() => {
     // Pre-hydration the area is unknown; the page renders a LoadingCard.
@@ -360,16 +398,6 @@ export default function NumsPage() {
       list.sort((a, b) => a.week - b.week || a.name.localeCompare(b.name));
     }
 
-    // Shame: every player with no submission for a completed (graded) week.
-    const shame: { userId: string; name: string; color: string; week: number }[] = [];
-    for (const w of weeks) {
-      for (const p of players) {
-        if (w.subs.some((s) => s.userId === p.id)) continue;
-        shame.push({ userId: p.id, name: publicName(p), color: p.avatarColor, week: w.contest.week });
-      }
-    }
-    shame.sort((a, b) => a.week - b.week || a.name.localeCompare(b.name));
-
     return {
       weeks,
       players,
@@ -379,7 +407,6 @@ export default function NumsPage() {
       progression,
       longshots: computeLongshots(weeks, rows),
       bonusHits,
-      shame,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated, version]);
@@ -393,8 +420,7 @@ export default function NumsPage() {
     );
   }
 
-  const { weeks, players, rows, grades, graphPlayers, progression, longshots, bonusHits, shame } =
-    data;
+  const { weeks, players, rows, grades, graphPlayers, progression, longshots, bonusHits } = data;
 
   // No graded weeks OR no players (live starts empty): nothing to compute,
   // so the table and movement tabs show their EmptyState instead. Also keeps
@@ -402,20 +428,40 @@ export default function NumsPage() {
   const nothingGraded = weeks.length === 0 || players.length === 0;
 
   const weekNums = weeks.map((w) => w.contest.week);
-  const leaderTotal = rows[0]?.total ?? 0;
   const rankCounts = new Map<number, number>();
   for (const r of rows) rankCounts.set(r.rank, (rankCounts.get(r.rank) ?? 0) + 1);
   const rankLabel = (rank: number) => ((rankCounts.get(rank) ?? 0) > 1 ? `T${rank}` : `${rank}`);
+
+  const accessors: Record<string, (row: StandingsRow) => SortValue> = {
+    rank: (row) => row.rank,
+    player: (row) => {
+      const p = poolParticipant(row.userId);
+      return p ? publicName(p) : null;
+    },
+    total: (row) => row.total,
+    // Count of every pill the cell shows, Kiss of Death included; none renders
+    // as a dot, so none sorts as blank.
+    bonuses: (row) => {
+      const n = row.bonuses.exacto + row.bonuses.perfecto + row.bonuses.closest + row.bonuses.kod;
+      return n > 0 ? n : null;
+    },
+  };
+  for (const w of weekNums) accessors[`w${w}`] = (row) => row.weekly[w];
+  const sortedRows = sortRows(rows, sort, accessors);
+  // Search narrows the table only: ranks and points stay the season's, never
+  // the filter's.
+  const needle = query.trim().toLowerCase();
+  const tableRows = needle
+    ? sortedRows.filter((row) => {
+        const p = poolParticipant(row.userId);
+        return p != null && publicName(p).toLowerCase().includes(needle);
+      })
+    : sortedRows;
 
   const toggle = (id: string) => setOpenId((cur) => (cur === id ? null : id));
 
   const longshotLeader = longshots.leader ? poolParticipant(longshots.leader.userId) : null;
 
-  const week = currentWeek();
-  const weekContest = effectiveContest(week);
-  const weekOpen = weekContest != null && isContestOpen(weekContest);
-  const myPickIn =
-    user != null && !user.isAdmin && mySubmission(week, user.id) != null;
 
   const onTablistKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     const idx = TABS.findIndex((t) => t.id === tab);
@@ -479,77 +525,74 @@ export default function NumsPage() {
             </EmptyState>
           ) : (
             <>
-              {/* Podium */}
-              <div className="grid gap-4 sm:grid-cols-3">
-                {rows.slice(0, 3).map((row) => {
-                  const p = poolParticipant(row.userId);
-                  if (!p) return null;
-                  const back = leaderTotal - row.total;
-                  const medal =
-                    row.rank === 1 ? "text-gold" : row.rank === 2 ? "text-silver" : "text-fog";
-                  return (
-                    <Card key={row.userId} accent className="p-5">
-                      <div className="flex items-start justify-between">
-                        <span className={`display text-5xl leading-none ${medal}`}>
-                          {rankLabel(row.rank)}
-                        </span>
-                        <AvatarDot color={p.avatarColor} />
-                      </div>
-                      <div className="mt-3 font-bold text-chalk">{publicName(p)}</div>
-                      <div className="mt-3 flex items-baseline gap-2">
-                        <span
-                          className={`display text-3xl ${row.total < 0 ? "text-loss" : "text-chalk"}`}
-                        >
-                          {row.total < 0 ? signedPts(row.total) : fmtPts(row.total)}
-                        </span>
-                        <span className="text-xs uppercase tracking-wider text-fog">pts</span>
-                      </div>
-                      <div className="mt-1 text-xs text-fog">
-                        {row.rank === 1
-                          ? "The hunted. Enjoy it while it lasts."
-                          : back === 0
-                            ? "Even on top."
-                            : `${fmtPts(back)} back`}
-                      </div>
-                    </Card>
-                  );
-                })}
-              </div>
-
               {/* Full table */}
               <div>
-                <p className="mb-3 text-xs text-fog">
-                  {
-                    "Click any row for the receipts: every line item, every bonus, every mistake. Through "
-                  }
-                  {weeks.length} graded {weeks.length === 1 ? "week" : "weeks"}.
-                </p>
+                <div className="mb-3 flex flex-wrap items-center gap-3">
+                  <input
+                    type="search"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search players…"
+                    aria-label="Search the table by player"
+                    className="w-full rounded-lg border border-edge bg-panel-2 px-3 py-1.5 text-sm text-chalk outline-none transition placeholder:text-fog focus:border-honolulu/60 sm:w-64"
+                  />
+                  {needle && (
+                    <span className="text-xs text-fog">
+                      {tableRows.length} of {sortedRows.length}
+                    </span>
+                  )}
+                </div>
+                {tableRows.length === 0 ? (
+                  <EmptyState title="Nobody by that name.">
+                    {`No player matches “${query.trim()}”.`}
+                  </EmptyState>
+                ) : (
                 <Card className="overflow-hidden">
                   <div className="table-scroll">
                     <table className="w-full min-w-[760px] text-sm">
                       <thead>
                         <tr className="border-b border-edge text-left text-xs uppercase tracking-wider text-fog">
-                          <th scope="col" className="px-4 py-3 font-semibold">
+                          <SortTh k="rank" sort={sort} onSort={onSort} className="px-4 py-3 font-semibold">
                             Rank
-                          </th>
-                          <th scope="col" className="px-4 py-3 font-semibold">
+                          </SortTh>
+                          <SortTh k="player" sort={sort} onSort={onSort} className="px-4 py-3 font-semibold">
                             Player
-                          </th>
+                          </SortTh>
                           {weekNums.map((w) => (
-                            <th key={w} scope="col" className="px-3 py-3 text-right font-semibold">
+                            <SortTh
+                              key={w}
+                              k={`w${w}`}
+                              sort={sort}
+                              onSort={onSort}
+                              firstDir="desc"
+                              title={`Week ${w} points`}
+                              className="px-3 py-3 text-right font-semibold"
+                            >
                               W{w}
-                            </th>
+                            </SortTh>
                           ))}
-                          <th scope="col" className="px-4 py-3 text-right font-semibold">
+                          <SortTh
+                            k="total"
+                            sort={sort}
+                            onSort={onSort}
+                            firstDir="desc"
+                            className="px-4 py-3 text-right font-semibold"
+                          >
                             Total
-                          </th>
-                          <th scope="col" className="px-4 py-3 font-semibold">
+                          </SortTh>
+                          <SortTh
+                            k="bonuses"
+                            sort={sort}
+                            onSort={onSort}
+                            firstDir="desc"
+                            className="px-4 py-3 font-semibold"
+                          >
                             Bonuses
-                          </th>
+                          </SortTh>
                         </tr>
                       </thead>
                       <tbody>
-                        {rows.map((row) => {
+                        {tableRows.map((row) => {
                           const p = poolParticipant(row.userId);
                           if (!p) return null;
                           const open = openId === row.userId;
@@ -638,6 +681,8 @@ export default function NumsPage() {
                                           key={w.contest.week}
                                           week={w.contest.week}
                                           grade={grades.get(w.contest.week)?.get(row.userId)}
+                                          sub={w.subs.find((s) => s.userId === row.userId)}
+                                          results={w.results}
                                         />
                                       ))}
                                     </div>
@@ -651,34 +696,6 @@ export default function NumsPage() {
                     </table>
                   </div>
                 </Card>
-              </div>
-
-              {/* Shame */}
-              <div>
-                <SectionTitle kicker="The permanent record" className="mb-4">
-                  Shame
-                </SectionTitle>
-                {shame.length > 0 ? (
-                  <Card className="overflow-hidden">
-                    <ul className="divide-y divide-edge">
-                      {shame.map((s) => (
-                        <li
-                          key={`${s.week}-${s.userId}`}
-                          className="flex items-center gap-2.5 px-4 py-3 text-sm"
-                        >
-                          <AvatarDot color={s.color} />
-                          <span className="font-semibold text-silver">{s.name}</span>
-                          <span className="text-fog">
-                            Week {s.week}. No pick. Zero points.
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </Card>
-                ) : (
-                  <EmptyState title="Full attendance">
-                    {"Everyone has picked every week. Mother Superior is quietly suspicious."}
-                  </EmptyState>
                 )}
               </div>
 
@@ -773,28 +790,6 @@ export default function NumsPage() {
         </div>
       )}
 
-      {/* CTA */}
-      <Card className="flex flex-col items-start justify-between gap-3 p-5 sm:flex-row sm:items-center">
-        <p className="text-sm text-silver">
-          {weekOpen ? (
-            <>
-              <span className="font-bold text-chalk">Week {week} is open.</span>{" "}
-              {"Don't be an idiot."}
-            </>
-          ) : (
-            <>
-              <span className="font-bold text-chalk">Week {week} is next.</span>{" "}
-              {"The slate drops when Mother Superior says it drops."}
-            </>
-          )}
-        </p>
-        <Link
-          href="/"
-          className="rounded-lg bg-honolulu px-4 py-2 text-sm font-bold text-white transition hover:bg-honolulu-deep"
-        >
-          {weekOpen ? (myPickIn ? "Edit your pick" : "Make your pick") : "Go to the pool"}
-        </Link>
-      </Card>
     </div>
   );
 }

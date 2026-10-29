@@ -14,6 +14,7 @@ import { ALL_WEEKS, BYE_WEEK, SEASON, gameForWeek } from "@/lib/schedule";
 import {
   allEffectiveResults,
   effectiveContests,
+  isContestOpen,
   mySubmission,
   useHydrated,
   useStoreVersion,
@@ -56,9 +57,9 @@ function StatusRail({
       </div>
     );
   }
-  if (contest?.status === "open") {
+  if (contest && isContestOpen(contest)) {
     const hasPick =
-      user != null && !user.isAdmin && mySubmission(contest.week, user.id) != null;
+      user != null && mySubmission(contest.week, user.id) != null;
     return (
       <div className="flex flex-col items-start gap-1.5 sm:items-end">
         <Pill tone={STATUS_TONE.open}>Slate open</Pill>
@@ -68,7 +69,8 @@ function StatusRail({
       </div>
     );
   }
-  if (contest?.status === "locked") {
+  // Status "open" past the lock time is locked too; no edit link after kickoff.
+  if (contest?.status === "locked" || contest?.status === "open") {
     return <Pill tone={STATUS_TONE.locked}>Locked, grading soon</Pill>;
   }
   return <Pill>Slate not open</Pill>;

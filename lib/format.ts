@@ -26,6 +26,16 @@ export function fmtDateTime(iso: string, timeTBD?: boolean): string {
   return `${fmtGameDay(iso)} · ${fmtKickoff(iso, timeTBD)}`;
 }
 
+/** "Sunday at 1 PM Eastern" / "Sunday at 8:20 PM Eastern": a lock time, spelled out. */
+export function fmtLockEastern(iso: string): string {
+  const d = new Date(iso);
+  const day = d.toLocaleDateString("en-US", { ...ET, weekday: "long" });
+  const time = d
+    .toLocaleTimeString("en-US", { ...ET, hour: "numeric", minute: "2-digit" })
+    .replace(":00", "");
+  return `${day} at ${time} Eastern`;
+}
+
 /** 6.5 -> "6.5", 8 -> "8" */
 export function fmtPts(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
@@ -33,6 +43,26 @@ export function fmtPts(n: number): string {
 
 export function signedPts(n: number): string {
   return n >= 0 ? `+${fmtPts(n)}` : `−${fmtPts(Math.abs(n))}`;
+}
+
+// --- The spread ---------------------------------------------------------------
+// A spread of 0 is a straight pick: no number after the team, and the question
+// is called Pick Um instead of the spread. Every surface that prints a spread
+// side goes through these so the whole site agrees.
+
+export function isPickUm(line: number): boolean {
+  return line === 0;
+}
+
+/** "DET −13.5" / "NO +13.5", or just the team when the line is 0. */
+export function spreadSideText(team: string, line: number, favorite: boolean): string {
+  if (isPickUm(line)) return team;
+  return `${team} ${favorite ? "−" : "+"}${fmtPts(line)}`;
+}
+
+/** The default question header: "The spread: DET −13.5", or "Pick Um" at 0. */
+export function spreadTitle(favorite: string, line: number): string {
+  return isPickUm(line) ? "Pick Um" : `The spread: ${favorite} −${fmtPts(line)}`;
 }
 
 /** Score displays use a plain hyphen, pool-style: "34-17". */

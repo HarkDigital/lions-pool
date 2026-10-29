@@ -6,6 +6,7 @@ import { Nav } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
 import { DemoNotice } from "@/components/DemoNotice";
 import { RosterSync } from "@/components/RosterSync";
+import { ReminderPrompt } from "@/components/ReminderPrompt";
 
 const bebas = Bebas_Neue({ weight: "400", subsets: ["latin"], variable: "--font-bebas" });
 const barlow = Barlow({
@@ -80,6 +81,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {children}
           </main>
           <Footer />
+          <ReminderPrompt />
         </body>
       </html>
     </ClerkProvider>

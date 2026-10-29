@@ -8,23 +8,29 @@
 
 import { Fragment, useState } from "react";
 import { AdminGate } from "@/components/AdminGate";
+import { SortTh, sortRows, useSort } from "@/components/sort";
 import { TeamLogo } from "@/components/TeamLogo";
-import { Card, EmptyState, Pill, STATUS_DOT, STATUS_TONE, SectionTitle } from "@/components/ui";
-import { fmtDateTime, fmtPts, fmtScore, signedPts } from "@/lib/format";
+import { Btn, Card, EmptyState, Pill, STATUS_DOT, STATUS_TONE, SectionTitle } from "@/components/ui";
+import { fmtDateTime, fmtPts, fmtScore, isPickUm, signedPts, spreadSideText } from "@/lib/format";
+import { downloadCsv, toCsv } from "@/lib/csv";
 import { ALL_WEEKS } from "@/lib/schedule";
-import { gradeWeek } from "@/lib/scoring";
+import { gradeWeek, isBlankPick } from "@/lib/scoring";
 import { teamInfo } from "@/lib/teams";
 import {
-
-  bonusValues,  currentWeek,
+  bonusValues,
   effectiveContests,
   effectiveResults,
   effectiveSubmissions,
+  memberEmails,
+  memberNames,
   poolParticipant,
+  poolPlayers,
   publicName,
-  useStoreVersion,
+  rosterLoaded,
+  useInboxWeek,
 } from "@/lib/store";
-import type { Contest, ContestStatus, ScorePick, Submission } from "@/lib/types";
+import { NO_PICK } from "@/lib/types";
+import type { Contest, ContestStatus, Question, ScorePick, Submission, UserWeekGrade } from "@/lib/types";
 
 export default function SubmissionsPage() {
   return (
@@ -40,6 +46,7 @@ export default function SubmissionsPage() {
 function answerLines(contest: Contest, sub: Submission): string[] {
   return contest.questions.map((q) => {
     const a = sub.answers[q.id];
+    if (a === NO_PICK) return "No pick";
     switch (q.kind) {
       case "moneyline": {
         if (typeof a !== "string") return "No answer";
@@ -51,9 +58,9 @@ function answerLines(contest: Contest, sub: Submission): string[] {
       case "spread": {
         if (typeof a !== "string") return "No answer";
         if (a === q.favorite)
-          return `${teamInfo(q.favorite).short} −${fmtPts(q.line)} (pays ${fmtPts(q.favoritePoints)})`;
+          return `${spreadSideText(teamInfo(q.favorite).short, q.line, true)} (pays ${fmtPts(q.favoritePoints)})`;
         if (a === q.dog)
-          return `${teamInfo(q.dog).short} +${fmtPts(q.line)} (pays ${fmtPts(q.dogPoints)})`;
+          return `${spreadSideText(teamInfo(q.dog).short, q.line, false)} (pays ${fmtPts(q.dogPoints)})`;
         return a;
       }
       case "overUnder": {
@@ -75,6 +82,10 @@ function answerLines(contest: Contest, sub: Submission): string[] {
         for (const g of q.games) {
           const winner = a[g.id];
           if (!winner) continue;
+          if (winner === NO_PICK) {
+            picks.push(`No pick on ${teamInfo(g.away).short} at ${teamInfo(g.home).short}`);
+            continue;
+          }
           const loser = winner === g.home ? g.away : g.home;
           picks.push(`${teamInfo(winner).short} over ${teamInfo(loser).short}`);
         }
@@ -91,6 +102,68 @@ function scorePickText(p: ScorePick): string {
     : `${p.winner} ${fmtScore(p.opp, p.lions)}`;
 }
 
+// --- CSV export --------------------------------------------------------------
+
+/** Column header for one question: its title, else a short description. */
+function questionHeader(q: Question): string {
+  if (q.title) return q.title;
+  switch (q.kind) {
+    case "moneyline":
+      return `Moneyline: ${q.options.map((o) => teamInfo(o.team).short).join(" vs ")}`;
+    case "spread":
+      return isPickUm(q.line)
+        ? `Pick Um: ${teamInfo(q.favorite).short} vs ${teamInfo(q.dog).short}`
+        : `Spread: ${teamInfo(q.favorite).short} −${fmtPts(q.line)}`;
+    case "overUnder":
+      return `O/U ${fmtPts(q.line)}: ${q.label}`;
+    case "prop":
+      return q.question;
+    case "pickem":
+      return `Pickum (${q.games.length} games)`;
+  }
+}
+
+/**
+ * One row per submission: who, when, the score pick, one column per slate
+ * question in plain language, and the week total once graded. The office's
+ * export, so real names and emails ride along.
+ */
+function buildCsv(
+  contest: Contest,
+  subs: Submission[],
+  grades: Map<string, UserWeekGrade> | null,
+): string {
+  const header = [
+    "Week",
+    "Nickname",
+    "Name",
+    "Email",
+    "Submitted (UTC)",
+    "Winner",
+    "Lions score",
+    "Opponent score",
+    ...contest.questions.map(questionHeader),
+    ...(grades ? ["Week total"] : []),
+  ];
+  const rows = subs.map((s) => {
+    const p = poolParticipant(s.userId);
+    const g = grades?.get(s.userId);
+    return [
+      contest.week,
+      p ? publicName(p) : s.userId,
+      p?.name ?? "",
+      p ? memberEmails(p).join("; ") : "",
+      s.submittedAtUTC,
+      s.scorePick?.winner ?? (contest.scoreBonuses && !isBlankPick(s) ? "No score" : ""),
+      s.scorePick?.lions ?? "",
+      s.scorePick?.opp ?? "",
+      ...(isBlankPick(s) ? contest.questions.map(() => "No pick (0-0)") : answerLines(contest, s)),
+      ...(grades ? [g ? g.total : isBlankPick(s) ? 0 : ""] : []),
+    ];
+  });
+  return toCsv([header, ...rows]);
+}
+
 // --- Status presentation ----------------------------------------------------
 
 /* Labels are local; tones and dots come from the shared status maps so the
@@ -105,14 +178,42 @@ const STATUS_META: Record<
   graded: { label: "Graded", tone: STATUS_TONE.graded, dot: STATUS_DOT.graded },
 };
 
+// --- Search -----------------------------------------------------------------
+
+const SEARCH_INPUT =
+  "w-full rounded-lg border border-edge bg-panel-2 px-3 py-1.5 text-xs text-chalk outline-none transition placeholder:text-fog focus:border-honolulu/60 sm:w-56";
+
+/** Case-insensitive match on anything the office knows a player by. */
+function matchesQuery(sub: Submission, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const p = poolParticipant(sub.userId);
+  const haystack = [
+    sub.userId,
+    p ? publicName(p) : "",
+    p?.nickname,
+    // Either person on a shared entry should find it: both names, both
+    // addresses, and both account ids.
+    ...(p ? memberNames(p) : []),
+    ...(p ? memberEmails(p) : []),
+    ...(p?.memberIds ?? []),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return haystack.includes(q);
+}
+
 // --- Page -------------------------------------------------------------------
 
+type SortKey = "player" | "submitted" | "answers" | "scorePick" | "total";
+
 function SubmissionsInner() {
-  useStoreVersion();
-  // Lazy init: runs on mount inside AdminGate, after hydration, so the
-  // area-aware currentWeek() is safe here (never at module scope).
-  const [week, setWeek] = useState<number>(() => currentWeek());
+  // Opens on the latest ungraded week with picks, not the next one to lock.
+  const [week, setWeek] = useInboxWeek();
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const { sort, toggle, setSort } = useSort<SortKey>();
 
   const contests = effectiveContests();
   const contest = contests.find((c) => c.week === week);
@@ -129,6 +230,42 @@ function SubmissionsInner() {
       : null;
 
   const cols = isGraded ? 6 : 4;
+
+  // Who still owes a pick: the playing roster minus anyone with a submission
+  // on file. Admins are excluded to match effectiveSubmissions(), which drops
+  // office rows, so the Commissioner never shows up as a ghost.
+  const rosterReady = rosterLoaded();
+  const players = poolPlayers().filter((p) => !p.isAdmin);
+  const rosterIds = new Set(players.map((p) => p.id));
+  // Deleting a member in Clerk does not delete the picks they already filed,
+  // so a row can outlive its account. Such a pick belongs to nobody: it is
+  // never graded, and it must not count against the roster either, or
+  // "submitted" and "yet to submit" stop adding up.
+  const filed = rosterReady ? subs.filter((s) => rosterIds.has(s.userId)) : subs;
+  const submittedIds = new Set(filed.map((s) => s.userId));
+  const ghosts = players.filter((p) => !submittedIds.has(p.id));
+
+  // Search narrows the table only; grading and the CSV still see the whole week.
+  const shown = subs.filter((s) => matchesQuery(s, query));
+  const searching = query.trim().length > 0;
+
+  const sorted = sortRows<Submission, SortKey>(shown, sort, {
+    player: (s) => {
+      const p = poolParticipant(s.userId);
+      return p ? publicName(p) : s.userId;
+    },
+    submitted: (s) => s.submittedAtUTC,
+    // The cell lists the answers in slate order, so sort on that same text:
+    // everyone who took the same side lands in one block. (A count is useless
+    // here — most slates carry a single question, so it is 1 for the field.)
+    answers: (s) => {
+      if (isBlankPick(s) || !contest) return null;
+      const lines = answerLines(contest, s).filter((line) => line !== "No answer");
+      return lines.length > 0 ? lines.join(" · ") : null;
+    },
+    scorePick: (s) => (s.scorePick ? scorePickText(s.scorePick) : null),
+    total: (s) => grades?.get(s.userId)?.total,
+  });
 
   return (
     <div className="space-y-6">
@@ -147,6 +284,7 @@ function SubmissionsInner() {
                 onClick={() => {
                   setWeek(w);
                   setExpanded(null);
+                  setSort({ key: null, dir: "asc" });
                 }}
                 className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border bg-pitch px-2.5 py-1.5 text-xs font-bold transition ${
                   selected
@@ -177,19 +315,87 @@ function SubmissionsInner() {
       {contest ? (
         <>
           <Card className="p-6">
-            <div className="flex flex-wrap items-center gap-3">
-              <h3 className="display text-2xl">
-                Week {contest.week}: {contest.title}
-              </h3>
-              <Pill tone={STATUS_META[contest.status].tone}>
-                {STATUS_META[contest.status].label}
-              </Pill>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <h3 className="display text-2xl">
+                  Week {contest.week}: {contest.title}
+                </h3>
+                <Pill tone={STATUS_META[contest.status].tone}>
+                  {STATUS_META[contest.status].label}
+                </Pill>
+              </div>
+              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search players…"
+                  aria-label="Search submissions by player"
+                  className={SEARCH_INPUT}
+                />
+                <Btn
+                  kind="ghost"
+                  disabled={subs.length === 0}
+                  onClick={() =>
+                    downloadCsv(
+                      `lions-pool-week-${contest.week}-submissions.csv`,
+                      buildCsv(contest, subs, grades),
+                    )
+                  }
+                  className="px-3 py-1.5 text-xs"
+                >
+                  Export CSV ({subs.length})
+                </Btn>
+              </div>
             </div>
             <div className="mt-2 text-sm text-fog">
               {contest.status === "graded" || contest.status === "locked" ? "Locked" : "Locks"}{" "}
               {fmtDateTime(contest.lockAtUTC)}
             </div>
+            {searching && subs.length > 0 && (
+              <div className="mt-1 text-xs text-fog">
+                {shown.length} of {subs.length} {subs.length === 1 ? "submission" : "submissions"} match
+                {" "}“{query.trim()}”
+              </div>
+            )}
             {contest.blurb && <p className="mt-3 text-sm italic text-fog">{contest.blurb}</p>}
+            <div className="mt-4 flex flex-wrap gap-x-10 gap-y-3 border-t border-edge pt-4">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-[0.15em] text-fog">
+                  Submitted
+                </div>
+                <div className="display mt-1 text-3xl">
+                  {filed.length}
+                  {rosterReady && players.length > 0 && (
+                    <span className="ml-1 text-lg text-fog">/ {players.length}</span>
+                  )}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-[0.15em] text-fog">
+                  Yet to submit
+                </div>
+                <div
+                  className={`display mt-1 text-3xl ${
+                    !rosterReady ? "text-fog" : ghosts.length > 0 ? "text-gold" : "text-win"
+                  }`}
+                  title={ghosts.length > 0 ? ghosts.map(publicName).join(", ") : undefined}
+                >
+                  {rosterReady ? ghosts.length : "–"}
+                </div>
+                {rosterReady && (
+                  <div className="mt-1 text-xs text-fog">
+                    {players.length === 0
+                      ? "Nobody on the roster yet."
+                      : ghosts.length === 0
+                        ? "A full inbox. Finally."
+                        : ghosts.length === 1
+                          ? `${publicName(ghosts[0])} still owes a pick.`
+                          : ""}
+                  </div>
+                )}
+              </div>
+            </div>
           </Card>
 
           {subs.length === 0 ? (
@@ -198,22 +404,49 @@ function SubmissionsInner() {
                 ? "The slate isn't even posted yet. Nobody can be early to a party that doesn't exist."
                 : "Not a single pick in for this week. Mother Superior notices these things."}
             </EmptyState>
+          ) : shown.length === 0 ? (
+            <EmptyState title="Nobody by that name.">
+              No submission this week matches “{query.trim()}”. Try a nickname, real name, or email.
+            </EmptyState>
           ) : (
             <Card className="overflow-hidden">
               <div className="table-scroll">
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-edge text-xs uppercase tracking-wider text-fog">
-                      <th className="px-4 py-3">Player</th>
-                      <th className="px-4 py-3">Submitted</th>
-                      <th className="px-4 py-3">Answers</th>
-                      <th className="px-4 py-3">Score pick</th>
-                      {isGraded && <th className="px-4 py-3 text-right">Total</th>}
+                      <SortTh k="player" sort={sort} onSort={toggle} className="px-4 py-3">
+                        Player
+                      </SortTh>
+                      <SortTh k="submitted" sort={sort} onSort={toggle} className="px-4 py-3">
+                        Submitted
+                      </SortTh>
+                      <SortTh
+                        k="answers"
+                        sort={sort}
+                        onSort={toggle}
+                        className="px-4 py-3"
+                      >
+                        Answers
+                      </SortTh>
+                      <SortTh k="scorePick" sort={sort} onSort={toggle} className="px-4 py-3">
+                        Score pick
+                      </SortTh>
+                      {isGraded && (
+                        <SortTh
+                          k="total"
+                          sort={sort}
+                          onSort={toggle}
+                          className="px-4 py-3 text-right"
+                          firstDir="desc"
+                        >
+                          Total
+                        </SortTh>
+                      )}
                       {isGraded && <th className="px-4 py-3" />}
                     </tr>
                   </thead>
                   <tbody>
-                    {subs.map((s) => {
+                    {sorted.map((s) => {
                       const p = poolParticipant(s.userId);
                       const g = grades?.get(s.userId);
                       const open = expanded === s.userId;
@@ -230,9 +463,11 @@ function SubmissionsInner() {
                                 )}
                                 <span>
                                   <span className="block font-bold text-chalk">
-                                    {p ? publicName(p) : s.userId}
+                                    {p ? publicName(p) : "Deleted account"}
                                   </span>
-                                  {p && <span className="block text-xs text-fog">{p.name}</span>}
+                                  <span className="block text-xs text-fog">
+                                    {p ? p.name : s.userId}
+                                  </span>
                                 </span>
                               </span>
                             </td>
@@ -241,19 +476,25 @@ function SubmissionsInner() {
                             </td>
                             <td className="px-4 py-3 align-top">
                               <ul className="space-y-1 text-xs text-silver">
-                                {answerLines(contest, s).map((line, i) => (
-                                  <li key={i}>{line}</li>
-                                ))}
+                                {isBlankPick(s) ? (
+                                  <li className="text-fog">No pick (0-0). Zero points.</li>
+                                ) : (
+                                  answerLines(contest, s).map((line, i) => <li key={i}>{line}</li>)
+                                )}
                               </ul>
                             </td>
                             <td className="whitespace-nowrap px-4 py-3 align-top">
-                              {s.scorePick ? (
+                              {isBlankPick(s) ? (
+                                <span className="text-xs text-fog">No pick (0-0)</span>
+                              ) : s.scorePick ? (
                                 <span className="inline-flex items-center gap-1.5 font-semibold text-silver">
                                   <TeamLogo abbr={s.scorePick.winner} size={18} />
                                   {scorePickText(s.scorePick)}
                                 </span>
                               ) : (
-                                <span className="text-xs text-fog">-</span>
+                                <span className="text-xs text-fog">
+                                  {contest.scoreBonuses ? "No score" : "-"}
+                                </span>
                               )}
                             </td>
                             {isGraded && (

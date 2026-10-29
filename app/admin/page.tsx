@@ -10,6 +10,7 @@
 import { useState } from "react";
 import { AdminGate } from "@/components/AdminGate";
 import { AreaLink } from "@/components/AreaLink";
+import { SortTh, sortRows, useSort } from "@/components/sort";
 import { Btn, Card, Pill, SectionTitle } from "@/components/ui";
 import { fmtDateTime, fmtPts, ordinal, signedPts } from "@/lib/format";
 import { computeStandings, type BonusValues, type SeasonInput } from "@/lib/scoring";
@@ -20,6 +21,8 @@ import {
   effectiveContests,
   effectiveResults,
   effectiveSubmissions,
+  inboxWeek,
+  memberEmails,
   paymentFor,
   poolPlayers,
   publicName,
@@ -65,8 +68,7 @@ function ScoringSettings() {
     <Card className="p-5">
       <h3 className="display text-2xl">Scoring Settings</h3>
       <p className="mt-1 text-sm text-fog">
-        The payouts for the score bonuses. Changes apply to every graded week instantly. Mother
-        Superior rewrites history when Mother Superior pleases.
+        The payouts for the score bonuses. Changes apply to every graded week instantly.
       </p>
       <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {BONUS_FIELDS.map((f) => (
@@ -145,14 +147,19 @@ function BonusChips({ row }: { row: StandingsRow }) {
   );
 }
 
+type RosterSortKey = "rank" | "player" | "total" | "bonuses" | "paid";
+
 function Dashboard() {
   useStoreVersion();
+  const { sort, toggle } = useSort<RosterSortKey>();
 
   // Rendered inside AdminGate, so the store is hydrated and the area-aware
   // selectors are safe to read. Live starts with an empty roster.
   const players = poolPlayers();
   const hasPlayers = players.length > 0;
-  const week = currentWeek();
+  // Picks are counted for the week the office is still working on; the lock
+  // card stays on the next kickoff.
+  const week = inboxWeek();
 
   const contests = effectiveContests();
   const gradedWeeks = contests
@@ -161,7 +168,7 @@ function Dashboard() {
 
   const playerIds = players.map((p) => p.id);
   const currentSubs = effectiveSubmissions(week).filter((s) => playerIds.includes(s.userId));
-  const current = effectiveContest(week);
+  const current = effectiveContest(currentWeek());
 
   const season: SeasonInput[] = gradedWeeks.map((w) => ({
     contest: contests.find((c) => c.week === w)!,
@@ -176,6 +183,18 @@ function Dashboard() {
     (a, b) =>
       (rowFor.get(a.id)?.rank ?? players.length) - (rowFor.get(b.id)?.rank ?? players.length),
   );
+  const sortedRoster = sortRows(roster, sort, {
+    rank: (p) => rowFor.get(p.id)?.rank,
+    player: (p) => publicName(p),
+    total: (p) => rowFor.get(p.id)?.total,
+    // Number of bonus chips shown; a row with none renders "-", so it sorts as blank.
+    bonuses: (p) => {
+      const b = rowFor.get(p.id)?.bonuses;
+      const n = b ? b.perfecto + b.exacto + b.closest + b.kod : 0;
+      return n > 0 ? n : undefined;
+    },
+    paid: (p) => paymentFor(p.id).paid,
+  });
 
   return (
     <div className="space-y-8">
@@ -187,7 +206,7 @@ function Dashboard() {
           value={String(players.length)}
           sub={
             hasPlayers
-              ? "Plus Mother Superior, who does not lose"
+              ? "Mother Superior included. Nobody sits this one out."
               : "No players yet. Accounts arrive with the backend."
           }
         />
@@ -243,16 +262,32 @@ function Dashboard() {
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-edge text-xs uppercase tracking-wider text-fog">
-                <th className="px-4 py-3">Rank</th>
-                <th className="px-4 py-3">Player</th>
-                <th className="px-4 py-3 text-right">Season pts</th>
-                <th className="px-4 py-3">Bonuses</th>
-                <th className="px-4 py-3">Paid</th>
+                <SortTh k="rank" sort={sort} onSort={toggle} className="px-4 py-3">
+                  Rank
+                </SortTh>
+                <SortTh k="player" sort={sort} onSort={toggle} className="px-4 py-3">
+                  Player
+                </SortTh>
+                <SortTh
+                  k="total"
+                  sort={sort}
+                  onSort={toggle}
+                  className="px-4 py-3 text-right"
+                  firstDir="desc"
+                >
+                  Season pts
+                </SortTh>
+                <SortTh k="bonuses" sort={sort} onSort={toggle} className="px-4 py-3" firstDir="desc">
+                  Bonuses
+                </SortTh>
+                <SortTh k="paid" sort={sort} onSort={toggle} className="px-4 py-3">
+                  Paid
+                </SortTh>
                 <th className="px-4 py-3 text-right">Picks</th>
               </tr>
             </thead>
             <tbody>
-              {roster.map((p) => {
+              {sortedRoster.map((p) => {
                 const row = rowFor.get(p.id);
                 const payment = paymentFor(p.id);
                 return (
@@ -275,7 +310,11 @@ function Dashboard() {
                           {p.name && p.name !== p.email && (
                             <span className="block text-xs text-silver">{p.name}</span>
                           )}
-                          {p.email && <span className="block text-xs text-fog">{p.email}</span>}
+                          {memberEmails(p).map((e) => (
+                            <span key={e} className="block text-xs text-fog">
+                              {e}
+                            </span>
+                          ))}
                         </span>
                       </span>
                     </td>

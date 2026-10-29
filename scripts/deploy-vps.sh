@@ -18,5 +18,6 @@ npx next build
 rsync -az --delete .next/standalone/ lionspool-vps:/var/www/lionspool-app/app/
 rsync -az --delete .next/static/ lionspool-vps:/var/www/lionspool-app/app/.next/static/
 rsync -az --delete public/ lionspool-vps:/var/www/lionspool-app/app/public/
+rsync -az scripts/cron-reminders.sh lionspool-vps:/var/www/lionspool-app/cron-reminders.sh
 ssh lionspool-vps 'pm2 restart lionspool 2>/dev/null || pm2 start /var/www/lionspool-app/start.sh --name lionspool; pm2 save'
 echo "Deployed."

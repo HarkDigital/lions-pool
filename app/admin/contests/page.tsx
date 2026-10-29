@@ -19,18 +19,18 @@ import type {
   SpreadQ,
 } from "@/lib/types";
 import {
-  currentWeek,
   effectiveContest,
   effectiveContests,
   isDemoArea,
+  nowMs,
   saveContest,
   useStoreVersion,
 } from "@/lib/store";
-import { gameForWeek } from "@/lib/schedule";
+import { ALL_WEEKS, gameForWeek } from "@/lib/schedule";
+import { isLionsPickemGame } from "@/lib/scoring";
 import { TEAMS, teamInfo } from "@/lib/teams";
-import { fmtDateTime, fmtPts, utcToEtInput, etInputToUtc } from "@/lib/format";
+import { etInputToUtc, fmtDateTime, fmtPts, isPickUm, spreadSideText, utcToEtInput } from "@/lib/format";
 import { AdminGate } from "@/components/AdminGate";
-import { ExpandableText } from "@/components/ExpandableText";
 import { TeamLogo } from "@/components/TeamLogo";
 import { Btn, Card, Pill, PointsChip, SectionTitle, STATUS_TONE } from "@/components/ui";
 
@@ -44,15 +44,35 @@ const KIND_LABEL: Record<Question["kind"], string> = {
   spread: "Spread",
   overUnder: "Over/Under",
   prop: "Prop",
-  pickem: "Pick’em",
+  pickem: "Pickum",
 };
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
-/** First unfinished (draft) week in the current area, else the live week.
+/** Generous game length: a slate counts as over this long after its last kickoff. */
+const GAME_OVER_MS = 4 * 60 * 60 * 1000;
+
+/** When a week's last game should be over: its latest kickoff (the Lions
+ *  game, any pick'em game, or the lock) plus a full game. */
+function slateOverMs(week: number, contests: Contest[]): number {
+  const c = contests.find((x) => x.week === week);
+  const times = [
+    gameForWeek(week)?.dateUTC,
+    c?.lockAtUTC,
+    ...(c?.questions ?? []).flatMap((q) => (q.kind === "pickem" ? q.games.map((g) => g.dateUTC) : [])),
+  ]
+    .map((t) => (t ? Date.parse(t) : NaN))
+    .filter((t) => !Number.isNaN(t));
+  return times.length > 0 ? Math.max(...times) + GAME_OVER_MS : -Infinity;
+}
+
+/** The upcoming week: the first whose games are not over yet. It moves on
+ *  once the previous slate's last game ends, not at the lock.
  *  Call-time only: the area comes from the URL, so never at module scope. */
 function defaultBuilderWeek(): number {
-  return effectiveContests().find((c) => c.status === "draft")?.week ?? currentWeek();
+  const contests = effectiveContests();
+  const now = nowMs();
+  return ALL_WEEKS.find((w) => now < slateOverMs(w, contests)) ?? ALL_WEEKS[ALL_WEEKS.length - 1];
 }
 
 // Lock and kickoff fields are entered and shown in EASTERN time no matter
@@ -133,13 +153,15 @@ function questionLabel(q: Question): string {
     case "moneyline":
       return `Moneyline: ${q.options.map((o) => teamInfo(o.team).short).join(" vs ")}`;
     case "spread":
-      return `Spread: ${teamInfo(q.favorite).short} −${fmtPts(q.line)}`;
+      return isPickUm(q.line)
+        ? `Pick Um: ${teamInfo(q.favorite).short} vs ${teamInfo(q.dog).short}`
+        : `Spread: ${teamInfo(q.favorite).short} −${fmtPts(q.line)}`;
     case "overUnder":
       return `O/U ${fmtPts(q.line)}: ${q.label}`;
     case "prop":
       return q.question;
     case "pickem":
-      return `Pick’em (${q.games.length} games)`;
+      return `Pickum (${q.games.length} games)`;
   }
 }
 
@@ -357,7 +379,7 @@ function PickemEditor({ q, onChange }: { q: PickemQ; onChange: (q: PickemQ) => v
   const setGame = (i: number, patch: Partial<PickemGame>) =>
     onChange({ ...q, games: q.games.map((g, j) => (j === i ? { ...g, ...patch } : g)) });
   const removeGame = (i: number) => {
-    // A pick’em with zero games would leave players nothing to answer and the
+    // A pickum with zero games would leave players nothing to answer and the
     // slate unsubmittable — the last game stays.
     if (q.games.length <= 1) return;
     onChange({ ...q, games: q.games.filter((_, j) => j !== i) });
@@ -393,7 +415,7 @@ function PickemEditor({ q, onChange }: { q: PickemQ; onChange: (q: PickemQ) => v
           <span
             title={
               q.games.length === 1
-                ? "A pick’em with no games is just a shrug. Remove the whole pick instead."
+                ? "A pickum with no games is just a shrug. Remove the whole pick instead."
                 : undefined
             }
           >
@@ -476,7 +498,7 @@ function QuestionCard({
 
 // --- The slate, roughly as players see it -----------------------------------
 
-function QuestionPreview({ q }: { q: Question }) {
+function QuestionPreview({ q, scoreBonuses }: { q: Question; scoreBonuses: boolean }) {
   return (
     <div className="rounded-lg border border-edge bg-panel-2/60 p-3">
       {q.title && <div className="mb-2 text-xs font-semibold text-silver">{q.title}</div>}
@@ -493,11 +515,13 @@ function QuestionPreview({ q }: { q: Question }) {
       {q.kind === "spread" && (
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-silver">
           <span className="flex items-center gap-2">
-            <TeamLogo abbr={q.favorite} size={22} /> {teamInfo(q.favorite).short} −{fmtPts(q.line)}{" "}
+            <TeamLogo abbr={q.favorite} size={22} />{" "}
+            {spreadSideText(teamInfo(q.favorite).short, q.line, true)}{" "}
             <PointsChip points={q.favoritePoints} />
           </span>
           <span className="flex items-center gap-2">
-            <TeamLogo abbr={q.dog} size={22} /> {teamInfo(q.dog).short} +{fmtPts(q.line)}{" "}
+            <TeamLogo abbr={q.dog} size={22} />{" "}
+            {spreadSideText(teamInfo(q.dog).short, q.line, false)}{" "}
             <PointsChip points={q.dogPoints} />
           </span>
         </div>
@@ -532,13 +556,23 @@ function QuestionPreview({ q }: { q: Question }) {
               <TeamLogo abbr={g.away} size={20} /> {g.away}
               <span className="text-fog">@</span>
               <TeamLogo abbr={g.home} size={20} /> {g.home}
+              {/* The pick buttons the players get, shown inert. On a score week
+                  the Lions game has none: the player's score picks it. */}
+              {scoreBonuses && isLionsPickemGame(g) ? (
+                <span className="text-xs text-fog">Picked by their score</span>
+              ) : (
+                <span className="flex gap-1.5">
+                  <span className={PREVIEW_CHIP}>{g.away}</span>
+                  <span className={PREVIEW_CHIP}>{g.home}</span>
+                </span>
+              )}
               {g.dateUTC && <span className="ml-2 text-xs text-fog">{fmtDateTime(g.dateUTC)}</span>}
             </div>
           ))}
-          <div className="text-xs text-fog">
-            +{fmtPts(q.pointsPerCorrect)} per correct
-            {q.allCorrectTotal != null && <> · run the table: {fmtPts(q.allCorrectTotal)} total</>}
-            {q.allWrongTotal != null && <> · perfectly wrong: {fmtPts(q.allWrongTotal)} total</>}
+          <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-fog">
+            <span>+{fmtPts(q.pointsPerCorrect)} per correct</span>
+            {q.allCorrectTotal != null && <span>All Correct: {fmtPts(q.allCorrectTotal)}</span>}
+            {q.allWrongTotal != null && <span>All Incorrect: {fmtPts(q.allWrongTotal)}</span>}
           </div>
         </div>
       )}
@@ -546,8 +580,37 @@ function QuestionPreview({ q }: { q: Question }) {
   );
 }
 
+const PREVIEW_CHIP =
+  "rounded-md border border-edge bg-panel-2 px-2.5 py-1 text-xs font-bold text-silver";
+
+/** The score entry every player fills in on a score-bonuses week, shown inert. */
+function ScorePreview({ opponent }: { opponent?: string }) {
+  const box = (label: string) => (
+    <span className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-fog">
+      {label}
+      <span className="h-10 w-20 rounded-lg border border-edge bg-panel-2" />
+    </span>
+  );
+  return (
+    <div className="rounded-lg border border-edge bg-panel-2/60 p-3">
+      <div className="text-xs font-semibold text-silver">The final score</div>
+      <div className="mt-2 flex flex-wrap items-end gap-3">
+        {box("Lions")}
+        <span className="display pb-1 text-xl text-fog">-</span>
+        {box(opponent ? teamInfo(opponent).short : "Opponent")}
+      </div>
+    </div>
+  );
+}
+
 function SlatePreview({ contest }: { contest: Contest }) {
   const game = gameForWeek(contest.week);
+  // Same order as the pick form: spreads the player answers lead, then the
+  // score entry, then everything else.
+  const lead = contest.scoreBonuses
+    ? contest.questions.filter((q) => q.kind === "spread" && !q.derived)
+    : [];
+  const rest = contest.questions.filter((q) => !lead.includes(q));
   return (
     <Card accent className="p-5 sm:p-6">
       <div className="mb-1 text-xs font-semibold uppercase tracking-[0.2em] text-sky">
@@ -569,17 +632,25 @@ function SlatePreview({ contest }: { contest: Contest }) {
       </div>
       {contest.blurb && (
         <div className="mt-3">
-          <ExpandableText text={contest.blurb} words={100} />
+          <p className="whitespace-pre-line text-sm leading-relaxed text-silver">{contest.blurb}</p>
         </div>
       )}
       {contest.motherSays && (
         <div className="mt-3">
-          <Pill tone="gold">Mother Superior's pick: {contest.motherSays}</Pill>
+          <Pill tone="gold">
+            Mother Superior's pick: {contest.motherSays}
+            {contest.motherPickum && contest.motherPickum.length > 0 &&
+              ` · ${contest.motherPickum.map((t) => teamInfo(t).short).join(", ")}`}
+          </Pill>
         </div>
       )}
       <div className="mt-4 space-y-3">
-        {contest.questions.map((q) => (
-          <QuestionPreview key={q.id} q={q} />
+        {lead.map((q) => (
+          <QuestionPreview key={q.id} q={q} scoreBonuses={contest.scoreBonuses} />
+        ))}
+        {contest.scoreBonuses && <ScorePreview opponent={game?.opponent} />}
+        {rest.map((q) => (
+          <QuestionPreview key={q.id} q={q} scoreBonuses={contest.scoreBonuses} />
         ))}
       </div>
       {contest.comboBonus && (

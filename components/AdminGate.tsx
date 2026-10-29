@@ -16,6 +16,7 @@ import { isDemoArea, useHydrated, useUser } from "@/lib/store";
 const ADMIN_LINKS = [
   { href: "/admin/", label: "Dashboard" },
   { href: "/admin/submissions/", label: "Submissions" },
+  { href: "/admin/office/", label: "Office Entry" },
   { href: "/admin/contests/", label: "Contest Builder" },
   { href: "/admin/grading/", label: "Grading" },
   { href: "/admin/mother/", label: "Mother Superior's Picks" },

@@ -85,12 +85,13 @@ export function Pill({
   );
 }
 
-/** The signature "points divide" chip: what a pick pays. */
+/** The signature "points divide" chip: what a pick pays. Two lines, the
+ * number over a POINTS label, so nobody mistakes +8.5 for a spread. */
 export function PointsChip({ points, hit }: { points: number; hit?: boolean }) {
   const val = Number.isInteger(points) ? points : points.toFixed(1);
   return (
     <span
-      className={`display inline-flex min-w-14 items-center justify-center rounded-lg border px-2 py-0.5 text-xl leading-6 ${
+      className={`inline-flex min-w-14 flex-col items-center justify-center rounded-lg border px-2 py-1 ${
         hit === undefined
           ? "border-honolulu/50 bg-honolulu/10 text-sky"
           : hit
@@ -98,7 +99,10 @@ export function PointsChip({ points, hit }: { points: number; hit?: boolean }) {
             : "border-edge text-fog"
       }`}
     >
-      +{val}
+      <span className="display text-xl leading-5">+{val}</span>
+      <span className="text-[9px] font-semibold uppercase leading-3 tracking-[0.2em] opacity-80">
+        Points
+      </span>
     </span>
   );
 }

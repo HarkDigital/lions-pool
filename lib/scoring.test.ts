@@ -11,11 +11,12 @@ import {
   computeStandings,
   gradeScoreBonuses,
   gradeWeek,
+  isBlankPick,
   rankProgression,
   type SeasonInput,
 } from "./scoring";
 import { playerSubmissions } from "./store";
-import { TIE } from "./types";
+import { NO_PICK, TIE } from "./types";
 import type {
   Contest,
   MoneylineQ,
@@ -407,6 +408,121 @@ describe("prop", () => {
 });
 
 // --- Pick'em ----------------------------------------------------------------
+
+describe("pickem with the Lions game (score week)", () => {
+  const PK: PickemQ = {
+    id: "pk",
+    kind: "pickem",
+    games: [
+      { id: "g1", away: "DET", home: "CAR" },
+      { id: "g2", away: "JAX", home: "CIN" },
+    ],
+    pointsPerCorrect: 3,
+    allCorrectTotal: 11,
+    allWrongTotal: 25,
+  };
+  const c = makeContest([PK], { scoreBonuses: true });
+
+  it("grades the Lions game from the final score when the grader left it blank", () => {
+    const r = makeResults(27, 20, { pk: { g2: "CIN" } });
+    const g = gradeOne(c, r, makeSub("a", { pk: { g1: "DET", g2: "CIN" } }, { winner: "DET", lions: 30, opp: 17 }));
+    expect(g.items.find((i) => i.kind === "question")?.label).toBe("Ran the table: 2/2 correct");
+  });
+
+  it("a Panthers win makes a DET pick wrong", () => {
+    const r = makeResults(17, 20, { pk: { g2: "CIN" } });
+    const g = gradeOne(c, r, makeSub("a", { pk: { g1: "DET", g2: "CIN" } }, { winner: "DET", lions: 30, opp: 17 }));
+    expect(g.items.find((i) => i.kind === "question")?.label).toBe("Pickum slate: 1/2 correct");
+  });
+
+  it("a winner set by hand wins over the score", () => {
+    const r = makeResults(27, 20, { pk: { g1: "CAR", g2: "CIN" } });
+    const g = gradeOne(c, r, makeSub("a", { pk: { g1: "CAR", g2: "CIN" } }, { winner: "CAR", lions: 17, opp: 30 }));
+    expect(g.items.find((i) => i.kind === "question")?.label).toBe("Ran the table: 2/2 correct");
+  });
+
+  it("a tie matches only a tie pick", () => {
+    const r = makeResults(20, 20, { pk: { g2: "CIN" } });
+    const g = gradeOne(c, r, makeSub("a", { pk: { g1: TIE, g2: "JAX" } }, { winner: TIE, lions: 17, opp: 17 }));
+    expect(g.items.find((i) => i.kind === "question")?.label).toBe("Pickum slate: 1/2 correct");
+  });
+});
+
+describe("office no score", () => {
+  const PK: PickemQ = {
+    id: "pk",
+    kind: "pickem",
+    games: [
+      { id: "g1", away: "DET", home: "CAR" },
+      { id: "g2", away: "JAX", home: "CIN" },
+    ],
+    pointsPerCorrect: 3,
+    allCorrectTotal: 11,
+    allWrongTotal: 25,
+  };
+  const c = makeContest([PK], { scoreBonuses: true });
+  const r = makeResults(27, 20, { pk: { g2: "CIN" } });
+
+  it("keeps the other picks, files the Lions game as no pick, skips the score bonuses", () => {
+    const noScore = makeSub("a", { pk: { g1: NO_PICK, g2: "CIN" } });
+    const scored = makeSub("b", { pk: { g1: "DET", g2: "JAX" } }, { winner: "DET", lions: 30, opp: 17 });
+    const grades = gradeWeek(c, r, [noScore, scored]);
+    const a = grades.find((g) => g.userId === "a")!;
+    expect(a.total).toBe(3);
+    expect(a.items.every((i) => i.kind === "question")).toBe(true);
+    // The only score on file takes Closest-To.
+    const b = grades.find((g) => g.userId === "b")!;
+    expect(b.items.some((i) => i.bonusType === "closest")).toBe(true);
+  });
+
+  it("a derived spread with no score is a no pick", () => {
+    const sp: SpreadQ = {
+      id: "sp", kind: "spread", favorite: "DET", dog: "CAR", line: 3.5, favoritePoints: 10, dogPoints: 12, derived: true,
+    };
+    const g = gradeOne(makeContest([sp], { scoreBonuses: true }), r, makeSub("a", { sp: NO_PICK }));
+    expect(g.total).toBe(0);
+    expect(g.items[0].label).toBe("Spread: no pick");
+  });
+});
+
+describe("office no pick", () => {
+  const PK: PickemQ = {
+    id: "pk",
+    kind: "pickem",
+    games: [
+      { id: "g1", away: "CHI", home: "ATL" },
+      { id: "g2", away: "BAL", home: "CLE" },
+    ],
+    pointsPerCorrect: 3,
+    allCorrectTotal: 11,
+    allWrongTotal: 25,
+  };
+  const r = makeResults(null, null, { pk: { g1: "ATL", g2: "BAL" } });
+  const label = (g: UserWeekGrade) => g.items.find((i) => i.kind === "question")?.label;
+
+  it("a no-pick game pays zero and is reported", () => {
+    const g = gradeOne(makeContest([PK]), r, makeSub("a", { pk: { g1: "ATL", g2: NO_PICK } }));
+    expect(g.total).toBe(3);
+    expect(label(g)).toBe("Pickum slate: 1/2 correct (1 no pick)");
+  });
+
+  it("no picks never earn the all-incorrect payout", () => {
+    const allNone = gradeOne(makeContest([PK]), r, makeSub("a", { pk: { g1: NO_PICK, g2: NO_PICK } }));
+    expect(allNone.total).toBe(0);
+    const mixed = gradeOne(makeContest([PK]), r, makeSub("a", { pk: { g1: "CHI", g2: NO_PICK } }));
+    expect(mixed.total).toBe(0);
+  });
+
+  it("a no-pick spread is zero, not the underdog", () => {
+    const sp: SpreadQ = {
+      id: "sp", kind: "spread", favorite: "DET", dog: "NYJ", line: 9.5, favoritePoints: 10, dogPoints: 12,
+    };
+    // NYJ covers here, so reading NONE as the dog would wrongly pay 12.
+    const g = gradeOne(makeContest([sp]), makeResults(20, 17), makeSub("a", { sp: NO_PICK }));
+    expect(g.total).toBe(0);
+    expect(g.items[0].label).toBe("Spread: no pick");
+  });
+});
 
 describe("pickem", () => {
   const PICKEM: PickemQ = {
@@ -1022,5 +1138,91 @@ describe("configurable bonus values", () => {
     const weeks = [{ contest, results, subs }];
     expect(computeStandings(["perf"], weeks, custom)[0].total).toBe(50);
     expect(rankProgression(["perf"], weeks, custom)[0].ranks["perf"].total).toBe(50);
+  });
+});
+
+// --- Blank picks and Pick Um (Sep 15, 2026 rulings) -------------------------
+
+describe("a 0-0 score pick is no pick", () => {
+  const PICK_UM: SpreadQ = {
+    id: "pu",
+    kind: "spread",
+    favorite: "DET",
+    dog: "CHI",
+    line: 0,
+    favoritePoints: 10,
+    dogPoints: 10,
+  };
+  const contest = makeContest([PICK_UM], { scoreBonuses: true });
+  const blank = () => makeSub("blank", { pu: "DET" }, { winner: TIE, lions: 0, opp: 0 });
+
+  it("is recognised only when a score pick reads 0-0", () => {
+    expect(isBlankPick(blank())).toBe(true);
+    expect(isBlankPick(makeSub("real", { pu: "DET" }, { winner: "DET", lions: 24, opp: 20 }))).toBe(false);
+    expect(isBlankPick(makeSub("bye", { pu: "DET" }))).toBe(false); // no score pick at all
+    expect(isBlankPick(makeSub("shutout", {}, { winner: "DET", lions: 10, opp: 0 }))).toBe(false);
+  });
+
+  it("gets no grade row at all: no question points even with a winning side answered", () => {
+    const real = makeSub("real", { pu: "DET" }, { winner: "DET", lions: 24, opp: 20 });
+    const grades = gradeWeek(contest, makeResults(27, 20), [blank(), real]);
+    expect(grades.map((g) => g.userId)).toEqual(["real"]);
+    expect(totalsByUser(grades).real).toBeGreaterThan(0);
+  });
+
+  it("can neither win nor block a score bonus, even when a side finishes on 0", () => {
+    // Final 3-0. A 0-0 pick would be an Exacto on the opponent side and would
+    // suppress Closest-To for the field; it is not in the field at all, so the
+    // nearest real pick collects both sides.
+    const near = makeSub("near", {}, { winner: "DET", lions: 6, opp: 3 });
+    const map = gradeScoreBonuses(contest, makeResults(3, 0), [blank(), near]);
+    expect(map.has("blank")).toBe(false);
+    expect((map.get("near") ?? []).map((i) => i.bonusType)).toEqual(["closest", "closest"]);
+  });
+
+  it("stands exactly like a missing pick in the season table", () => {
+    const week = { contest, results: makeResults(27, 20), subs: [blank()] };
+    const rows = computeStandings(["blank", "absent"], [week]);
+    const byId = Object.fromEntries(rows.map((r) => [r.userId, r]));
+    expect(byId.blank.total).toBe(0);
+    expect(byId.blank.weekly[90]).toBeUndefined();
+    expect(byId.blank.weekly).toEqual(byId.absent.weekly);
+    expect(byId.blank.bonuses).toEqual({ closest: 0, exacto: 0, perfecto: 0, kod: 0 });
+  });
+});
+
+describe("a 0 line is Pick Um", () => {
+  const PICK_UM: SpreadQ = {
+    id: "pu",
+    kind: "spread",
+    favorite: "DET",
+    dog: "CHI",
+    line: 0,
+    favoritePoints: 10,
+    dogPoints: 10,
+  };
+  const contest = makeContest([PICK_UM]);
+  const fav = makeSub("fav", { pu: "DET" });
+  const dog = makeSub("dog", { pu: "CHI" });
+
+  it("pays whoever picked the outright winner, with no spread number in the label", () => {
+    const grades = gradeWeek(contest, makeResults(20, 17), [fav, dog]);
+    const item = (id: string) => grades.find((g) => g.userId === id)!.items[0];
+    expect(item("fav")).toMatchObject({ points: 10, kind: "question" });
+    expect(item("fav").label).toMatch(/^Pick Um: .+ won$/);
+    expect(item("dog")).toMatchObject({ points: 0 });
+    expect(item("dog").label).toMatch(/^Pick Um: .+ lost$/);
+    expect(item("fav").label).not.toMatch(/[−+]0/);
+  });
+
+  it("pays the dog when the dog wins outright", () => {
+    const grades = gradeWeek(contest, makeResults(17, 20), [fav, dog]);
+    expect(totalsByUser(grades)).toEqual({ fav: 0, dog: 10 });
+  });
+
+  it("pushes on a tie game", () => {
+    const grades = gradeWeek(contest, makeResults(20, 20), [fav, dog]);
+    expect(totalsByUser(grades)).toEqual({ fav: 0, dog: 0 });
+    expect(grades[0].items[0].label).toBe("Pick Um: tie game, push");
   });
 });

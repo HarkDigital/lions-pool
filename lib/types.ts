@@ -42,7 +42,7 @@ export interface SpreadQ extends QBase {
   kind: "spread";
   favorite: TeamAbbr;
   dog: TeamAbbr;
-  line: number; // positive, e.g. 7.5
+  line: number; // e.g. 7.5; 0 makes it Pick Um (straight winner, no number shown)
   favoritePoints: number; // points for correctly taking the favorite to cover
   dogPoints: number; // points for correctly taking the dog (+line or outright win)
   /**
@@ -128,6 +128,9 @@ export interface Contest {
   blurb?: string;
   /** Mother's own pick, shown as flavor ("Mother Says: ..."). */
   motherSays?: string;
+  /** Mother's Pickum picks for the other games (the Lions game rides on
+   *  motherSays), in slate order. Shown beside "Mother Superior Says". */
+  motherPickum?: TeamAbbr[];
   hasLionsGame: boolean;
   lockAtUTC: string;
   questions: Question[];
@@ -144,8 +147,14 @@ export interface Contest {
 
 /** Sentinel winner for a predicted tie (equal scores). Ties are real in the
  * NFL regular season; a tie pick collects no winner points but stays fully
- * eligible for score bonuses. */
+ * eligible for score bonuses. The one exception is 0-0, which files as no
+ * pick at all (see isBlankPick in scoring.ts). */
 export const TIE = "TIE";
+
+/** Office entry's "this player sent nothing for this question" (or this
+ * pick'em game). Grades as zero, and a pick'em game marked this way is not a
+ * wrong pick: it never counts toward the all-incorrect payout. */
+export const NO_PICK = "NONE";
 
 export interface ScorePick {
   winner: TeamAbbr; // team abbr, or TIE when lions === opp
@@ -200,12 +209,27 @@ export interface UserWeekGrade {
 
 // --- People ---------------------------------------------------------------
 
+/** One real person behind an entry. ADMIN-ONLY, same rule as `Participant.name`. */
+export interface EntryMember {
+  name: string;
+  email?: string;
+}
+
+/**
+ * One entry in the pool. Usually one person, but two can share an entry:
+ * each signs in with their own account and both edit the same pick. The
+ * entry's `id` is the primary account's id, and every pick is filed under it.
+ */
 export interface Participant {
   id: string;
-  /** Real name. ADMIN-ONLY: never render on a public page. */
+  /** Real name, or "A & B" on a shared entry. ADMIN-ONLY: never render publicly. */
   name: string;
-  /** ADMIN-ONLY, same rule as `name`. */
+  /** ADMIN-ONLY, same rule as `name`. The primary's address on a shared entry. */
   email?: string;
+  /** Every account that signs in to this entry, primary first. */
+  memberIds?: string[];
+  /** ADMIN-ONLY: the people behind the entry, primary first. */
+  members?: EntryMember[];
   /**
    * The only name the pool sees, on every public surface. Set by
    * Mother Superior alone; players cannot change it.

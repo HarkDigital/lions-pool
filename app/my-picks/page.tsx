@@ -6,19 +6,19 @@
 // graded.
 // ---------------------------------------------------------------------------
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { AreaLink as Link, useAreaPrefix } from "@/components/AreaLink";
+import { AreaLink as Link } from "@/components/AreaLink";
+import { ReminderToggle } from "@/components/ReminderToggle";
 import { Card, EmptyState, LoadingCard, Pill, SectionTitle } from "@/components/ui";
 import { TeamLogo } from "@/components/TeamLogo";
-import { fmtDateTime, fmtPts, fmtScore, ordinal, signedPts } from "@/lib/format";
+import { fmtDateTime, fmtPts, fmtScore, ordinal, signedPts, spreadSideText } from "@/lib/format";
 import { gameForWeek } from "@/lib/schedule";
-import { computeStandings, gradeWeek, type SeasonInput } from "@/lib/scoring";
+import { computeStandings, gradeWeek, isBlankPick, type SeasonInput } from "@/lib/scoring";
 import {
 
   bonusValues,  effectiveContests,
   effectiveResults,
   effectiveSubmissions,
+  isContestOpen,
   poolPlayers,
   publicName,
   useHydrated,
@@ -26,6 +26,7 @@ import {
   useUser,
 } from "@/lib/store";
 import { teamInfo } from "@/lib/teams";
+import { NO_PICK } from "@/lib/types";
 import type {
   AnswerValue,
   Contest,
@@ -40,6 +41,7 @@ import type {
 function answerLines(q: Question, a: AnswerValue | undefined, graded: boolean): string[] {
   const pays = graded ? "paid" : "pays";
   if (a == null) return [];
+  if (a === NO_PICK) return ["No pick (0)"];
   switch (q.kind) {
     case "moneyline": {
       if (typeof a !== "string") return [];
@@ -51,8 +53,8 @@ function answerLines(q: Question, a: AnswerValue | undefined, graded: boolean): 
       if (typeof a !== "string") return [];
       const fav = a === q.favorite;
       const side = fav
-        ? `${teamInfo(q.favorite).short} −${fmtPts(q.line)}`
-        : `${teamInfo(q.dog).short} +${fmtPts(q.line)}`;
+        ? spreadSideText(teamInfo(q.favorite).short, q.line, true)
+        : spreadSideText(teamInfo(q.dog).short, q.line, false);
       return [`Took the ${side} (${pays} ${signedPts(fav ? q.favoritePoints : q.dogPoints)})`];
     }
     case "overUnder": {
@@ -74,7 +76,9 @@ function answerLines(q: Question, a: AnswerValue | undefined, graded: boolean): 
         .filter((g) => picks[g.id])
         .map(
           (g) =>
-            `${teamInfo(g.away).short} at ${teamInfo(g.home).short}: took the ${teamInfo(picks[g.id]).short}`,
+            `${teamInfo(g.away).short} at ${teamInfo(g.home).short}: ${
+              picks[g.id] === NO_PICK ? "no pick" : `took the ${teamInfo(picks[g.id]).short}`
+            }`,
         );
     }
   }
@@ -102,7 +106,10 @@ function WeekCard({
   graded: boolean;
 }) {
   const game = gameForWeek(contest.week);
-  const open = contest.status === "open";
+  // The lock time is authoritative: a week whose status is still "open" but
+  // whose kickoff has passed is locked, and nobody gets an edit link.
+  const open = isContestOpen(contest);
+  const locked = !open && (contest.status === "locked" || contest.status === "open");
   const when = game ? fmtDateTime(game.dateUTC) : `locks ${fmtDateTime(contest.lockAtUTC)}`;
 
   return (
@@ -140,7 +147,7 @@ function WeekCard({
             </>
           ) : open ? (
             <Pill tone="blue">Open</Pill>
-          ) : contest.status === "locked" ? (
+          ) : locked ? (
             <Pill>Locked</Pill>
           ) : (
             <Pill>Draft</Pill>
@@ -149,7 +156,11 @@ function WeekCard({
       </div>
 
       <div className="p-5">
-        {sub ? (
+        {sub && isBlankPick(sub) ? (
+          <p className="text-sm text-fog">
+            Filed as no pick (0-0). Zero points. Mother Superior remembers.
+          </p>
+        ) : sub ? (
           <>
             <ul className="space-y-1 text-sm text-silver">
               {contest.questions.flatMap((q) =>
@@ -157,7 +168,11 @@ function WeekCard({
                   <li key={`${q.id}-${i}`}>{line}</li>
                 )),
               )}
-              {sub.scorePick && <li>{scorePickText(sub.scorePick)}</li>}
+              {sub.scorePick ? (
+                <li>{scorePickText(sub.scorePick)}</li>
+              ) : (
+                contest.scoreBonuses && <li>No score sent</li>
+              )}
             </ul>
             <div className="mt-2 text-xs text-fog">Submitted {fmtDateTime(sub.submittedAtUTC)}</div>
           </>
@@ -228,6 +243,19 @@ function WeekCard({
             )}
           </div>
         )}
+
+        {locked && !graded && (
+          <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-edge pt-3 text-sm">
+            {sub ? (
+              <>
+                <Pill tone="win">Locked in</Pill>
+                <span className="text-fog">Picks are locked. You live with it.</span>
+              </>
+            ) : (
+              <span className="text-fog">No pick. Locked out for the week.</span>
+            )}
+          </div>
+        )}
       </div>
     </Card>
   );
@@ -239,15 +267,6 @@ export default function MyPicksPage() {
   const hydrated = useHydrated();
   useStoreVersion();
   const user = useUser();
-  const router = useRouter();
-  const prefix = useAreaPrefix();
-  const isAdmin = user?.isAdmin === true;
-
-  // Mother Superior has no ledger: the office is the admin's My Picks.
-  useEffect(() => {
-    if (isAdmin) router.replace(`${prefix}/admin/mother/`);
-  }, [isAdmin, prefix, router]);
-
   // The prerender is area-agnostic: no data-bearing UI until the URL says
   // which pool (live vs demo) this is.
   if (!hydrated) return <LoadingCard />;
@@ -264,11 +283,6 @@ export default function MyPicksPage() {
         </EmptyState>
       </div>
     );
-  }
-
-  if (user.isAdmin) {
-    // The redirect above is in flight; hold a neutral frame, render no ledger.
-    return <LoadingCard label="Opening the office" />;
   }
 
   const contests = effectiveContests();
@@ -347,6 +361,8 @@ export default function MyPicksPage() {
           </div>
         </div>
       </Card>
+
+      <ReminderToggle />
 
       <div className="space-y-4">
         {weeks.map((contest) => {

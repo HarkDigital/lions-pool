@@ -21,9 +21,10 @@ export default function RulesPage() {
         <h1 className="display mt-2 text-5xl sm:text-6xl">Here Dem&rsquo; Old Rules</h1>
         <p className="mt-4 max-w-3xl text-sm leading-relaxed text-silver">
           Every week of the football season (except one), the Detroit Lions play an opponent.
-          You, a participant in this pool, will tell Mother Superior who wins and exactly what
-          the score will be. Everything below is detail. Read it once, carefully, so Mother
-          Superior never has to explain it to you again.
+          You, a participant in this pool, will tell Mother Superior exactly what the final
+          score will be. That one number pair decides who you have winning, which side of the
+          spread you are on, and whether you cash a bonus. Everything below is detail. Read it
+          once, carefully, so Mother Superior never has to explain it to you again.
         </p>
       </div>
 
@@ -31,26 +32,41 @@ export default function RulesPage() {
       <section className="space-y-4">
         <SectionTitle kicker="Rule One">The One Commandment</SectionTitle>
         <Card className="p-6 sm:p-8">
-          <div className="display text-4xl text-sky sm:text-5xl">The Winner And The Score.</div>
+          <div className="display text-4xl text-sky sm:text-5xl">The Spread And The Score.</div>
           <p className="mt-4 max-w-3xl text-sm leading-relaxed text-silver">
-            Every Lions game, the pick form asks you for two things: the team that wins, and
-            the exact final score of both teams. In the pool&rsquo;s traditional format:
+            Every Lions game comes with a spread Mother Superior sets, and each side of it
+            pays its own number. The pick form then asks you for one thing: the exact final
+            score of both teams. Whoever you score higher is your winner, and the margin puts
+            you on one side of the spread. There is no separate winner button and no side to
+            click, because the score already said it. In the pool&rsquo;s traditional format:
           </p>
-          <div className="mt-4 inline-flex items-center gap-3 rounded-lg border border-edge-2 bg-panel-2 px-4 py-3">
-            <TeamLogo abbr="DET" size={28} />
-            <span className="display text-2xl">Lions win 31-13</span>
+          <div className="mt-4 flex flex-wrap items-stretch gap-3">
+            <div className="inline-flex items-center gap-3 rounded-lg border border-edge-2 bg-panel-2 px-4 py-3">
+              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-fog">
+                The line
+              </span>
+              <span className="display text-2xl">DET −13.5</span>
+            </div>
+            <div className="inline-flex items-center gap-3 rounded-lg border border-edge-2 bg-panel-2 px-4 py-3">
+              <TeamLogo abbr="DET" size={28} />
+              <span className="display text-2xl">Lions win 31-13</span>
+              <Pill tone="win">Covers</Pill>
+            </div>
           </div>
+          <p className="mt-3 max-w-3xl text-xs text-fog">
+            31-13 is an 18-point win, so that pick sits on the Lions&rsquo; side of −13.5. Score
+            it 20-13 instead and you are on the Saints +13.5, whether you meant to be or not.
+          </p>
           <p className="mt-4 max-w-3xl text-sm leading-relaxed text-silver">
             That is the entire assignment. No banter. No essays. No being cute. Freshness is a
             fine quality in your real life, but this is not your real life. This is your Lions
-            Pool life, and here, freshness is bad. The form accepts a winner and two numbers
-            for a reason: Mother Superior is not a palm reader, and has no interest in
-            becoming one.
+            Pool life, and here, freshness is bad. The form accepts two whole numbers for a
+            reason: Mother Superior is not a palm reader, and has no interest in becoming one.
           </p>
           <p className="mt-4 max-w-3xl text-sm leading-relaxed text-silver">
             One concession to reality: you may predict a tie. Ties are rare, but the NFL has
-            them, and the form will take one. A predicted tie collects no winner points; it
-            stays fully eligible for the score bonuses below.
+            them, and the form will take one: give both teams the same score. A predicted tie
+            picks no side of anything; it stays fully eligible for the score bonuses below.
           </p>
           <p className="display mt-5 text-3xl text-chalk">Don&rsquo;t be an idiot.</p>
         </Card>
@@ -61,20 +77,28 @@ export default function RulesPage() {
         <SectionTitle kicker="Rule Two">The Points Divide</SectionTitle>
         <Card className="p-6 sm:p-8">
           <p className="max-w-3xl text-sm leading-relaxed text-silver">
-            Mother Superior sets the payout for each side of every game. The favorite pays
-            little, because predicting the sunrise is not a talent. The longshot pays a lot,
-            because it should. Pick the wrong team, in either direction, and you collect
-            zero. The divide only pays winners.
+            Every week carries a spread, and Mother Superior sets the payout for each side of
+            it. The favorite pays less, because predicting the sunrise is not a talent. The dog
+            pays more, because it should. The favorite has to cover; the dog cashes by keeping
+            it close or winning outright. Land on the wrong side and you collect zero. The
+            divide only pays the side that covers.
           </p>
           <p className="mt-3 max-w-3xl text-sm leading-relaxed text-silver">
-            Yes, Mother Superior makes the lines herself. No, they are not Vegas. Stop
-            questioning Mother Superior.
+            You do not click a side. Your score does. Enter Lions 40, Saints 13 against a
+            13.5-point line and you are on the Lions to cover; enter 40-30 and you are on the
+            Saints. The form lights up your side as you type, so there is never any doubt
+            about what you filed.
+          </p>
+          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-silver">
+            Yes, Mother Superior makes the lines personally. No, they are not Vegas. Stop
+            questioning Mother Superior. Some weeks a straight-up moneyline gets posted on
+            top; on those weeks the form asks for a winner as well, with its own divide.
           </p>
 
           <div className="mt-6 overflow-hidden rounded-xl border border-edge">
             <div className="flex items-center justify-between gap-3 border-b border-edge bg-panel-2 px-4 py-3 sm:px-6">
               <span className="text-xs font-semibold uppercase tracking-[0.2em] text-fog">
-                Sample slate: Saints at Lions
+                Sample slate: Saints at Lions, DET −13.5
               </span>
               <Pill tone="blue">The divide</Pill>
             </div>
@@ -83,26 +107,26 @@ export default function RulesPage() {
                 <div className="flex items-center gap-3">
                   <TeamLogo abbr="DET" size={32} />
                   <div>
-                    <div className="font-bold text-chalk">Lions to win</div>
-                    <div className="text-xs text-fog">The conclusion everyone on earth expects</div>
+                    <div className="font-bold text-chalk">DET −13.5</div>
+                    <div className="text-xs text-fog">Lions win by 14 or more. The conclusion everyone expects.</div>
                   </div>
                 </div>
-                <PointsChip points={4.5} />
+                <PointsChip points={8.5} />
               </div>
               <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-6">
                 <div className="flex items-center gap-3">
                   <TeamLogo abbr="NO" size={32} />
                   <div>
-                    <div className="font-bold text-chalk">Saints to win</div>
-                    <div className="text-xs text-fog">Bold. Statistically unwise. Occasionally glorious.</div>
+                    <div className="font-bold text-chalk">NO +13.5</div>
+                    <div className="text-xs text-fog">Saints keep it within 13, or win. Bold. Occasionally glorious.</div>
                   </div>
                 </div>
-                <PointsChip points={16} />
+                <PointsChip points={10} />
               </div>
               <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-6">
                 <div>
-                  <div className="font-bold text-fog">Any wrong pick</div>
-                  <div className="text-xs text-fog">Either side. No partial credit. No sympathy.</div>
+                  <div className="font-bold text-fog">The wrong side</div>
+                  <div className="text-xs text-fog">Either direction. No partial credit. No sympathy.</div>
                 </div>
                 <PointsChip points={0} hit={false} />
               </div>
@@ -110,11 +134,12 @@ export default function RulesPage() {
           </div>
 
           <p className="mt-5 max-w-3xl text-sm leading-relaxed text-silver">
-            Sixteen points is tempting. Sixteen points is <span className="italic">meant</span>{" "}
-            to be tempting. But zeros compound, and chasing the longshot every single week digs
-            a crater no bonus can fill. This pool keeps a cautionary tale on the roster. Ask
-            The Machine how the longshot express has been running since 2019. Sometimes the
-            price is right. Sometimes it is not. That is gambling.
+            The bigger number is tempting. The bigger number is{" "}
+            <span className="italic">meant</span> to be tempting. But zeros compound, and
+            chasing the dog every single week digs a crater no bonus can fill. This pool keeps
+            a cautionary tale on the roster. Ask The Machine how the longshot express has been
+            running since 2019. Sometimes the price is right. Sometimes it is not. That is
+            gambling.
           </p>
         </Card>
       </section>
@@ -228,23 +253,24 @@ export default function RulesPage() {
         <SectionTitle kicker="Rule Four">Other Slates Mother Superior Runs</SectionTitle>
         <div className="grid gap-4 sm:grid-cols-2">
           <Card className="p-5 sm:p-6">
-            <h3 className="display text-2xl">Spreads</h3>
+            <h3 className="display text-2xl">Mother Superior Says</h3>
             <p className="mt-2 text-sm leading-relaxed text-silver">
-              Mother Superior makes the lines. They are not Vegas. Stop questioning Mother Superior. The
-              favorite has to cover; the dog cashes by keeping it close or winning outright.
-              Each side pays its own number, and on some weeks you never declare a side at all:
-              you pick winner and score like always, and Mother Superior does the math on where
-              you landed.
+              Most weeks the This Week page carries a gold strip with Mother Superior&rsquo;s
+              own call on the game. That is the house line: commentary, not an entry. It is
+              never graded and never touches the standings. Mother Superior&rsquo;s real pick
+              goes in on the same form as yours, and lives or dies in the Nums like everyone
+              else&rsquo;s.
             </p>
           </Card>
 
           <Card className="p-5 sm:p-6">
             <h3 className="display text-2xl">Over / Unders</h3>
             <p className="mt-2 text-sm leading-relaxed text-silver">
-              A number on the combined score, or on the Lions&rsquo; margin of victory. Pick a
-              side and get paid if you are right. Fair warning: some weeks your score pick
-              chooses your side automatically, so enter a score you actually believe in,
-              not one you think is funny.
+              A number on the combined score, or on the Lions&rsquo; margin of victory. Get
+              paid if you land on the right side of it. Your score pick chooses that side for
+              you, the same way it chooses the spread, so enter a score you actually believe
+              in, not one you think is funny. Only a stat line (passing yards, that sort of
+              thing) asks you to click over or under yourself.
             </p>
           </Card>
 
@@ -287,21 +313,50 @@ export default function RulesPage() {
         <Card className="p-6 sm:p-8">
           <div className="display text-4xl">Picks lock at kickoff.</div>
           <p className="mt-4 max-w-3xl text-sm leading-relaxed text-silver">
-            In by a minute, you are in. Late by a minute, you eat a zero. There is no appeals
+            There is no appeals
             process, no grace period, and no story about traffic that Mother Superior has not
             already heard and disbelieved.
           </p>
           <p className="mt-3 max-w-3xl text-sm leading-relaxed text-silver">
             No texts. No DMs. No voicemails. No carrier pigeons. No shouting your score across
             the parking lot. Why do you even have Mother Superior&rsquo;s number? The website is
-            the only door, and it closes on time.
+            the door, and it closes on time. The one exception: if Mother Superior has agreed
+            to file your picks for you, they get typed in from the office, and your deadline
+            is whatever Mother Superior says it is.
           </p>
-          <Link
-            href="/"
-            className="mt-6 inline-flex items-center gap-2 rounded-lg bg-honolulu px-4 py-2 text-sm font-bold text-white transition hover:bg-honolulu-deep"
-          >
-            Make this week&rsquo;s pick &rarr;
-          </Link>
+        </Card>
+      </section>
+
+      {/* 6. The Nums ------------------------------------------------------ */}
+      <section className="space-y-4">
+        <SectionTitle kicker="Rule Six">The Nums</SectionTitle>
+        <Card className="p-6 sm:p-8">
+          <div className="display text-4xl">Everyone plays. Everyone is ranked.</div>
+          <p className="mt-4 max-w-3xl text-sm leading-relaxed text-silver">
+            Every point from every graded week lands on the Nums: the season table, the
+            week-by-week movement, the bonus ledgers, and Shame, the list of everyone who
+            skipped a week. Mother Superior is on the table too. Commissioner is a job, not an
+            exemption.
+          </p>
+          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-silver">
+            The Nums are public. Anyone with the link can see them without signing in, so the
+            players whose picks come in through the office can watch themselves fall behind
+            like everyone else.
+          </p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 rounded-lg bg-honolulu px-4 py-2 text-sm font-bold text-white transition hover:bg-honolulu-deep"
+            >
+              Make this week&rsquo;s pick &rarr;
+            </Link>
+            <Link
+              href="/nums/"
+              className="inline-flex items-center gap-2 rounded-lg border border-edge-2 px-4 py-2 text-sm font-bold text-silver transition hover:border-honolulu hover:text-chalk"
+            >
+              See the Nums &rarr;
+            </Link>
+          </div>
         </Card>
       </section>
     </div>

@@ -23,13 +23,14 @@ import {
   saveResults,
   useStoreVersion,
 } from "@/lib/store";
-import { gradeWeek } from "@/lib/scoring";
+import { gradeWeek, isBlankPick, pickemWinners } from "@/lib/scoring";
 import { gameForWeek } from "@/lib/schedule";
 import { teamInfo } from "@/lib/teams";
-import { fmtPts, signedPts } from "@/lib/format";
+import { fmtPts, isPickUm, signedPts } from "@/lib/format";
 import { AdminGate } from "@/components/AdminGate";
 import { TeamLogo } from "@/components/TeamLogo";
 import { Btn, Card, EmptyState, Pill, SectionTitle, STATUS_TONE } from "@/components/ui";
+import { SortTh, sortRows, useSort } from "@/components/sort";
 
 const INPUT =
   "w-full rounded-lg border border-edge bg-panel-2 px-3 py-2 text-sm text-chalk outline-none transition focus:border-honolulu/60";
@@ -58,13 +59,15 @@ function qLabel(q: Question): string {
     case "moneyline":
       return `Moneyline (${q.options.map((o) => o.team).join(" / ")})`;
     case "spread":
-      return `${teamInfo(q.favorite).short} −${fmtPts(q.line)} spread`;
+      return isPickUm(q.line)
+        ? `Pick Um (${teamInfo(q.favorite).short} / ${teamInfo(q.dog).short})`
+        : `${teamInfo(q.favorite).short} −${fmtPts(q.line)} spread`;
     case "overUnder":
       return `O/U ${fmtPts(q.line)}: ${q.label}`;
     case "prop":
       return q.question;
     case "pickem":
-      return `Pick’em (${q.games.length} games)`;
+      return `Pickum (${q.games.length} games)`;
   }
 }
 
@@ -122,28 +125,51 @@ function missingActuals(contest: Contest, r: WeekResults): string[] {
       out.push(`winner of ${q.options.map((o) => o.team).join(" / ")}`);
     }
     if (q.kind === "pickem") {
-      const v = r.values[q.id];
-      const map = typeof v === "object" && v != null ? (v as Record<string, string>) : {};
+      // The Lions game fills itself in once the final score is entered.
+      const map = pickemWinners(q, r) ?? {};
       const left = q.games.filter((g) => !map[g.id]).length;
-      if (left > 0) out.push(`${left} pick’em winner${left === 1 ? "" : "s"}`);
+      if (left > 0) out.push(`${left} pickum winner${left === 1 ? "" : "s"}`);
     }
   }
   return out;
 }
 
+type GradeSortKey = "player" | "items" | "total";
+
 function GradeTable({ grades }: { grades: UserWeekGrade[] }) {
+  const { sort, toggle } = useSort<GradeSortKey>();
+  const rows = sortRows(grades, sort, {
+    player: (g) => {
+      const p = poolParticipant(g.userId);
+      return p ? publicName(p) : g.userId;
+    },
+    items: (g) => g.items.length,
+    total: (g) => g.total,
+  });
   return (
     <div className="table-scroll mt-4">
       <table className="w-full min-w-[560px] text-sm">
         <thead>
           <tr className="text-left text-xs font-semibold uppercase tracking-wider text-fog">
-            <th className="pb-2 pr-4">Player</th>
-            <th className="pb-2 pr-4">Line items</th>
-            <th className="pb-2 text-right">Week total</th>
+            <SortTh k="player" sort={sort} onSort={toggle} className="pb-2 pr-4">
+              Player
+            </SortTh>
+            <SortTh k="items" sort={sort} onSort={toggle} className="pb-2 pr-4" firstDir="desc">
+              Line items
+            </SortTh>
+            <SortTh
+              k="total"
+              sort={sort}
+              onSort={toggle}
+              className="pb-2 text-right"
+              firstDir="desc"
+            >
+              Week total
+            </SortTh>
           </tr>
         </thead>
         <tbody>
-          {grades.map((g) => {
+          {rows.map((g) => {
             const p = poolParticipant(g.userId);
             return (
               <tr key={g.userId} className="border-t border-edge align-top">
@@ -225,6 +251,8 @@ function GradingConsole() {
 
   const contest = effectiveContest(selectedWeek);
   const subs = contest ? effectiveSubmissions(selectedWeek) : [];
+  const filedCount = subs.filter((s) => !isBlankPick(s)).length;
+  const blankCount = subs.length - filedCount;
   const game = gameForWeek(selectedWeek);
   const opp = game?.opponent;
 
@@ -325,7 +353,8 @@ function GradingConsole() {
                 </h3>
                 <div className="mt-0.5 text-xs text-fog">
                   {game && <>{game.home ? "vs" : "@"} {teamInfo(game.opponent).name} · </>}
-                  {subs.length} pick{subs.length === 1 ? "" : "s"} in
+                  {filedCount} pick{filedCount === 1 ? "" : "s"} in
+                  {blankCount > 0 && <> · {blankCount} filed as no pick (0-0)</>}
                 </div>
               </div>
               {isGraded(contest.week, contest.status) && (
@@ -445,7 +474,7 @@ function GradingConsole() {
                   {q.kind === "pickem" && (
                     <>
                       <div className="mb-2 text-sm font-semibold text-silver">
-                        Pick’em winners
+                        Pickum winners
                       </div>
                       <div className="space-y-2">
                         {q.games.map((g) => {

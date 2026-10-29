@@ -18,8 +18,9 @@ import type {
   UserWeekGrade,
   WeekResults,
 } from "./types";
+import { NO_PICK, TIE } from "./types";
 import { teamInfo } from "./teams";
-import { fmtPts } from "./format";
+import { fmtPts, isPickUm, spreadSideText } from "./format";
 
 // --- Score-pick bonus values (rules.md) ------------------------------------
 export const BONUS = {
@@ -68,6 +69,11 @@ function lionsGameWinner(contest: Contest, results: WeekResults): string | null 
   return "OPP";
 }
 
+/** The zero line for a question the office marked as no pick. */
+function noPickItem(what: string): LineItem {
+  return { label: `${what}: no pick`, points: 0, kind: "question" };
+}
+
 function gradeMoneyline(
   q: MoneylineQ,
   answer: string | undefined,
@@ -77,6 +83,7 @@ function gradeMoneyline(
   const actual =
     (results.values[q.id] as string | undefined) ?? lionsGameWinner(contest, results);
   if (!actual || answer == null) return null;
+  if (answer === NO_PICK) return noPickItem("Moneyline");
   const opt = q.options.find((o) => o.team === answer);
   if (!opt) return null;
   const correct = answer === actual;
@@ -111,20 +118,34 @@ function gradeSpread(
   if (results.lionsScore == null || results.oppScore == null) return null;
   // Derived weeks never trust a stored side — the score IS the pick, so a
   // side that contradicts the player's own score is impossible by design.
-  const picked = q.derived ? spreadSideFromScore(q, scorePick) : answer;
+  // An office "no score" entry has no score to derive from: the only stored
+  // answer a derived week honors is the no-pick marker.
+  const picked = q.derived
+    ? scorePick
+      ? spreadSideFromScore(q, scorePick)
+      : answer === NO_PICK
+        ? NO_PICK
+        : null
+    : answer;
   if (picked == null) return null;
+  if (picked === NO_PICK) return noPickItem(isPickUm(q.line) ? "Pick Um" : "Spread");
   const favScore = q.favorite === "DET" ? results.lionsScore : results.oppScore;
   const dogScore = q.favorite === "DET" ? results.oppScore : results.lionsScore;
   const margin = favScore - dogScore;
   if (margin === q.line) {
-    return { label: `Push on the ${fmtPts(q.line)} line`, points: 0, kind: "question" };
+    return {
+      label: isPickUm(q.line) ? "Pick Um: tie game, push" : `Push on the ${fmtPts(q.line)} line`,
+      points: 0,
+      kind: "question",
+    };
   }
   const favCovers = margin > q.line;
   const pickedFav = picked === q.favorite;
   const correct = pickedFav === favCovers;
-  const label = pickedFav
-    ? `${teamInfo(q.favorite).short} −${fmtPts(q.line)}: ${correct ? "covered" : "no cover"}`
-    : `${teamInfo(q.dog).short} +${fmtPts(q.line)}: ${correct ? "covered" : "no cover"}`;
+  const team = pickedFav ? teamInfo(q.favorite).short : teamInfo(q.dog).short;
+  const label = isPickUm(q.line)
+    ? `Pick Um: ${team} ${correct ? "won" : "lost"}`
+    : `${spreadSideText(team, q.line, pickedFav)}: ${correct ? "covered" : "no cover"}`;
   return {
     label,
     points: correct ? (pickedFav ? q.favoritePoints : q.dogPoints) : 0,
@@ -152,6 +173,7 @@ function gradeOverUnder(
 ): LineItem | null {
   const actual = actualForOverUnder(q, results);
   if (actual == null || answer == null) return null;
+  if (answer === NO_PICK) return noPickItem(`Over/Under ${fmtPts(q.line)}`);
   // Over and under are the only sides; an actual landing exactly on the
   // line pays neither. (Legacy "exact" answers grade as no answer.)
   if (answer !== "over" && answer !== "under") return null;
@@ -168,6 +190,7 @@ function gradeOverUnder(
 function gradeProp(q: PropQ, answer: string | undefined, results: WeekResults): LineItem | null {
   const actual = results.values[q.id];
   if (typeof actual !== "string" || answer == null) return null;
+  if (answer === NO_PICK) return noPickItem(q.question);
   const picked = q.options.find((o) => o.key === answer);
   const correct = answer === actual;
   return {
@@ -177,17 +200,44 @@ function gradeProp(q: PropQ, answer: string | undefined, results: WeekResults): 
   };
 }
 
+/** True for the Lions game on a pick'em slate. On a score-bonuses week the
+ *  player's score picks it, and the final score grades it. */
+export function isLionsPickemGame(g: { away: string; home: string }): boolean {
+  return g.away === "DET" || g.home === "DET";
+}
+
+/**
+ * The pick'em winners on file, with the Lions game filled in from the final
+ * score when the grader has not set it by hand. A tie grades as TIE, which
+ * matches only a tie pick.
+ */
+export function pickemWinners(q: PickemQ, results: WeekResults): Record<string, string> | null {
+  const actual = results.values[q.id];
+  const winners: Record<string, string> =
+    typeof actual === "object" && actual != null ? { ...(actual as Record<string, string>) } : {};
+  const { lionsScore: l, oppScore: o } = results;
+  if (l != null && o != null) {
+    for (const g of q.games) {
+      if (winners[g.id] || !isLionsPickemGame(g)) continue;
+      const opp = g.away === "DET" ? g.home : g.away;
+      winners[g.id] = l === o ? TIE : l > o ? "DET" : opp;
+    }
+  }
+  return Object.keys(winners).length > 0 ? winners : null;
+}
+
 function gradePickem(
   q: PickemQ,
   answer: Record<string, string> | undefined,
   results: WeekResults,
 ): LineItem[] {
-  const actual = results.values[q.id];
-  if (!answer || typeof actual !== "object" || actual == null) return [];
-  const winners = actual as Record<string, string>;
+  const winners = pickemWinners(q, results);
+  if (!answer || !winners) return [];
   const graded = q.games.filter((g) => winners[g.id] && answer[g.id]);
   if (graded.length === 0) return [];
   const correct = graded.filter((g) => answer[g.id] === winners[g.id]).length;
+  // Games the office marked as no pick: zero, and never "wrong" for the sweep.
+  const noPicks = graded.filter((g) => answer[g.id] === NO_PICK).length;
   const n = graded.length;
   // The sweep totals are about the FULL slate (2025 Week 15: all five games),
   // not whatever subset happens to be graded so far.
@@ -199,7 +249,7 @@ function gradePickem(
       points: q.allCorrectTotal,
       kind: "question",
     });
-  } else if (fullSlate && correct === 0 && q.allWrongTotal != null) {
+  } else if (fullSlate && correct === 0 && noPicks === 0 && q.allWrongTotal != null) {
     items.push({
       label: `Perfectly wrong: 0/${n}. Mother Superior pays out for the sweep`,
       points: q.allWrongTotal,
@@ -207,7 +257,7 @@ function gradePickem(
     });
   } else {
     items.push({
-      label: `Pick'em slate: ${correct}/${n} correct`,
+      label: `Pickum slate: ${correct}/${n} correct${noPicks > 0 ? ` (${noPicks} no pick)` : ""}`,
       points: correct * q.pointsPerCorrect,
       kind: "question",
     });
@@ -239,14 +289,22 @@ function isQuestionCorrect(
     case "prop":
       return typeof a === "string" && a === results.values[q.id];
     case "pickem": {
-      const winners = results.values[q.id];
-      if (typeof a !== "object" || a == null || typeof winners !== "object" || winners == null)
-        return false;
-      return q.games.every(
-        (g) => (a as Record<string, string>)[g.id] === (winners as Record<string, string>)[g.id],
-      );
+      const winners = pickemWinners(q, results);
+      if (typeof a !== "object" || a == null || !winners) return false;
+      return q.games.every((g) => (a as Record<string, string>)[g.id] === winners[g.id]);
     }
   }
+}
+
+// --- Blank picks --------------------------------------------------------------
+
+/**
+ * A 0-0 score pick is the office's "nothing arrived": it grades as if no
+ * pick had been filed. No question points, no bonuses, and no say in who is
+ * closest. (Mother Superior's call, Sep 15, 2026.)
+ */
+export function isBlankPick(sub: Submission): boolean {
+  return !!sub.scorePick && sub.scorePick.lions === 0 && sub.scorePick.opp === 0;
 }
 
 // --- Score-pick bonuses -----------------------------------------------------
@@ -267,7 +325,7 @@ export function gradeScoreBonuses(
   const L = results.lionsScore;
   const O = results.oppScore;
 
-  const withPick = subs.filter((s) => s.scorePick);
+  const withPick = subs.filter((s) => s.scorePick && !isBlankPick(s));
   const add = (id: string, item: LineItem) => {
     if (!out.has(id)) out.set(id, []);
     out.get(id)!.push(item);
@@ -359,8 +417,10 @@ export function gradeWeek(
   subs: Submission[],
   bonus: BonusValues = DEFAULT_BONUS_VALUES,
 ): UserWeekGrade[] {
-  const bonusMap = gradeScoreBonuses(contest, results, subs, bonus);
-  return subs.map((sub) => {
+  // A blank (0-0) pick never reaches the grader: it is the same as no pick.
+  const filed = subs.filter((sub) => !isBlankPick(sub));
+  const bonusMap = gradeScoreBonuses(contest, results, filed, bonus);
+  return filed.map((sub) => {
     const items: LineItem[] = [];
     for (const q of contest.questions) {
       const a = sub.answers[q.id];

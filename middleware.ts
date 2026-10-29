@@ -1,9 +1,22 @@
 import { clerkClient, clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-// The whole pool lives behind the door. Signed out, you see the sign-in
-// screen and nothing else — live area, demo area, admin, all of it.
-const isPublicRoute = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)"]);
+// The pool lives behind the door, with one window: the Nums. Not every
+// contestant has an account (Mother Superior files some picks by hand), so
+// the standings are public. The two read APIs that feed the page are open at
+// the middleware and decide for themselves what a signed-out caller may see;
+// their write handlers still require a session. The reminder sender and the
+// email unsubscribe link authenticate themselves (a shared secret and a
+// signed link), so they skip the sign-in gate too.
+const isPublicRoute = createRouteMatcher([
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+  "/nums(.*)",
+  "/api/pool",
+  "/api/roster",
+  "/api/cron/reminders(.*)",
+  "/unsubscribe(.*)",
+]);
 
 // Admin-only territory, server-enforced by email: the live admin wing.
 const isAdminOnlyRoute = createRouteMatcher(["/admin(.*)"]);

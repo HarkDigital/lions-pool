@@ -7,7 +7,6 @@
 // ---------------------------------------------------------------------------
 
 import { AreaLink as Link } from "@/components/AreaLink";
-import { ExpandableText } from "@/components/ExpandableText";
 import type { Question } from "@/lib/types";
 import {
 
@@ -22,10 +21,10 @@ import {
   useHydrated,
   useStoreVersion,
 } from "@/lib/store";
-import { gameForWeek } from "@/lib/schedule";
+import { gameForWeek, locksAtKickoff } from "@/lib/schedule";
 import { teamInfo } from "@/lib/teams";
 import { computeStandings, type SeasonInput } from "@/lib/scoring";
-import { fmtDateTime, fmtGameDay, fmtKickoff, fmtPts } from "@/lib/format";
+import { fmtDateTime, fmtGameDay, fmtKickoff, fmtLockEastern, fmtPts, spreadSideText, spreadTitle } from "@/lib/format";
 import {
   Card,
   EmptyState,
@@ -76,13 +75,13 @@ function BoardQuestion({ q }: { q: Question }) {
     case "spread":
       return (
         <>
-          <QHeader>{q.title ?? `The spread: ${q.favorite} −${fmtPts(q.line)}`}</QHeader>
+          <QHeader>{q.title ?? spreadTitle(q.favorite, q.line)}</QHeader>
           <div className="mt-3 space-y-2">
             <BoardRow
               label={
                 <>
-                  <TeamLogo abbr={q.favorite} size={24} /> {teamInfo(q.favorite).short} −
-                  {fmtPts(q.line)}
+                  <TeamLogo abbr={q.favorite} size={24} />{" "}
+                  {spreadSideText(teamInfo(q.favorite).short, q.line, true)}
                 </>
               }
               points={q.favoritePoints}
@@ -90,8 +89,8 @@ function BoardQuestion({ q }: { q: Question }) {
             <BoardRow
               label={
                 <>
-                  <TeamLogo abbr={q.dog} size={24} /> {teamInfo(q.dog).short} +{fmtPts(q.line)} (or
-                  outright)
+                  <TeamLogo abbr={q.dog} size={24} />{" "}
+                  {spreadSideText(teamInfo(q.dog).short, q.line, false)}
                 </>
               }
               points={q.dogPoints}
@@ -130,7 +129,7 @@ function BoardQuestion({ q }: { q: Question }) {
       return (
         <>
           <div className="flex flex-wrap items-center gap-2">
-            <QHeader>{q.title ?? `Pick'em: ${q.games.length} games`}</QHeader>
+            <QHeader>{q.title ?? `Pickum: ${q.games.length} games`}</QHeader>
             <span className="text-xs font-semibold text-fog">
               +{fmtPts(q.pointsPerCorrect)} per correct
             </span>
@@ -145,16 +144,16 @@ function BoardQuestion({ q }: { q: Question }) {
             ))}
           </div>
           {(q.allCorrectTotal != null || q.allWrongTotal != null) && (
-            <p className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-fog">
+            <p className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-semibold text-fog">
               {q.allCorrectTotal != null && (
-                <>
-                  Run the table: <PointsChip points={q.allCorrectTotal} /> total.
-                </>
+                <span className="inline-flex items-center gap-2">
+                  All Correct: <PointsChip points={q.allCorrectTotal} />
+                </span>
               )}
               {q.allWrongTotal != null && (
-                <>
-                  Perfectly wrong: <PointsChip points={q.allWrongTotal} /> total.
-                </>
+                <span className="inline-flex items-center gap-2">
+                  All Incorrect: <PointsChip points={q.allWrongTotal} />
+                </span>
               )}
             </p>
           )}
@@ -246,7 +245,11 @@ export default function HomePage() {
           )}
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3 border-t border-edge pt-4 text-sm text-silver sm:justify-start">
-            <span>Picks lock at kickoff: {fmtDateTime(contest.lockAtUTC)}</span>
+            <span>
+              {locksAtKickoff(contest)
+                ? `Picks lock at kickoff: ${fmtDateTime(contest.lockAtUTC)}`
+                : `Picks lock ${fmtLockEastern(contest.lockAtUTC)}: ${fmtDateTime(contest.lockAtUTC)}`}
+            </span>
           </div>
         </div>
       </Card>
@@ -267,10 +270,10 @@ export default function HomePage() {
               {contest.blurb && (
                 <div className="px-6 py-5">
                   <div className="text-xs font-semibold uppercase tracking-[0.2em] text-sky">
-                    From the Commissioner
+                    From Mother Superior
                   </div>
                   <div className="mt-2">
-                    <ExpandableText text={contest.blurb} words={100} />
+                    <p className="whitespace-pre-line text-sm leading-relaxed text-silver">{contest.blurb}</p>
                   </div>
                 </div>
               )}
@@ -280,6 +283,16 @@ export default function HomePage() {
                     Mother Superior Says
                   </span>
                   <span className="display text-xl">{contest.motherSays}</span>
+                  {contest.motherPickum && contest.motherPickum.length > 0 && (
+                    <span className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                      {contest.motherPickum.map((t, i) => (
+                        <span key={i} className="display flex items-center gap-1.5 text-xl">
+                          <TeamLogo abbr={t} size={22} />
+                          {teamInfo(t).short.toUpperCase()}
+                        </span>
+                      ))}
+                    </span>
+                  )}
                 </div>
               )}
             </Card>

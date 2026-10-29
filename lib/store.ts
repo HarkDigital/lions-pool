@@ -15,9 +15,9 @@
 // skeleton until useHydrated() flips, then read these selectors.
 // ---------------------------------------------------------------------------
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useClerk, useUser as useClerkUser } from "@clerk/nextjs";
-import type { Contest, Participant, PaymentRecord, Submission, WeekResults } from "./types";
+import type { Contest, Participant, PaymentRecord, Submission, TeamAbbr, WeekResults } from "./types";
 import {
   CONTESTS,
   CURRENT_WEEK,
@@ -29,13 +29,15 @@ import {
 } from "./demo-data";
 import { LIVE_CONTESTS, MOTHER } from "./live-data";
 import { colorForId } from "./roster-color";
-import { DEFAULT_BONUS_VALUES, type BonusValues } from "./scoring";
+import { DEFAULT_BONUS_VALUES, isLionsPickemGame, type BonusValues } from "./scoring";
 
-/** Clerk emails that ARE Mother Superior. Comma-separated, set at build. */
+/** Clerk emails with admin powers. Comma-separated, set at build. */
 const ADMIN_EMAILS = (process.env.NEXT_PUBLIC_ADMIN_EMAILS ?? "mike@hark.digital")
   .split(",")
   .map((e) => e.trim().toLowerCase())
   .filter(Boolean);
+
+/** The one admin who IS Mother Superior; other admins sign in as "Admin". */
 
 // --- Area / mode -------------------------------------------------------------
 
@@ -98,7 +100,13 @@ let rosterFetched = false;
 export async function refreshRoster(): Promise<void> {
   try {
     const res = await fetch("/api/roster", { cache: "no-store" });
-    if (!res.ok) return;
+    if (!res.ok) {
+      // Signed out (401 on the sign-in page) or a server hiccup: DON'T stay
+      // latched, or the roster would read empty for the whole session. The
+      // per-navigation ensureRoster() retries until a fetch actually lands.
+      rosterFetched = false;
+      return;
+    }
     const { players } = (await res.json()) as { players: Partial<Participant>[] };
     liveRoster = players.map((p) => ({
       id: p.id!,
@@ -106,14 +114,18 @@ export async function refreshRoster(): Promise<void> {
       email: p.email,
       nickname: p.nickname ?? "",
       avatarColor: p.avatarColor ?? "#78838d",
+      ...(p.memberIds ? { memberIds: p.memberIds } : {}),
+      ...(p.members ? { members: p.members } : {}),
     }));
     emit();
   } catch {
-    /* offline or unauthorized: leave the cache as-is */
+    rosterFetched = false; // offline: retry on the next navigation
   }
 }
 
-/** Kick off the one-time roster fetch in the live area (no-op in demo/SSR). */
+/** Kick off the roster fetch in the live area (no-op in demo/SSR). Latches
+ * only while a fetch is pending or has succeeded; failures retry on the
+ * next call (RosterSync fires one per navigation). */
 export function ensureRoster(): void {
   if (isDemoArea() || typeof window === "undefined" || rosterFetched) return;
   rosterFetched = true;
@@ -125,13 +137,37 @@ export function poolPlayers(): Participant[] {
   return isDemoArea() ? PLAYERS : (liveRoster ?? []);
 }
 
+/** False while the live roster has never been fetched successfully: the UI
+ * can tell "still loading" apart from "loaded and genuinely empty". */
+export function rosterLoaded(): boolean {
+  return isDemoArea() || liveRoster !== null;
+}
+
 /** Roster including the Commissioner. */
 export function poolEveryone(): Participant[] {
   return isDemoArea() ? EVERYONE : [MOTHER, ...(liveRoster ?? [])];
 }
 
+/**
+ * The entry an id belongs to. `id` is normally the entry's own id; on a
+ * shared entry the second person's account id resolves here too, so their
+ * session, and any pick ever filed under it, lands on the shared entry.
+ */
 export function poolParticipant(id: string): Participant | undefined {
-  return poolEveryone().find((p) => p.id === id);
+  const all = poolEveryone();
+  return all.find((p) => p.id === id) ?? all.find((p) => p.memberIds?.includes(id));
+}
+
+/** Every name on an entry: one person, or both on a shared entry. ADMIN-ONLY. */
+export function memberNames(p: Participant): string[] {
+  const names = (p.members ?? []).map((m) => m.name).filter(Boolean);
+  return names.length > 0 ? names : [p.name].filter(Boolean);
+}
+
+/** Every address on an entry, primary first. ADMIN-ONLY. */
+export function memberEmails(p: Participant): string[] {
+  const emails = (p.members ?? []).map((m) => m.email ?? "").filter(Boolean);
+  return emails.length > 0 ? emails : [p.email ?? ""].filter(Boolean);
 }
 
 // --- Live pool data (MariaDB via /api/pool) ---------------------------------
@@ -152,15 +188,26 @@ interface LivePool {
 
 let livePool: LivePool | null = null;
 let poolFetched = false;
+/** Optimistic picks the server refused: never restored as "the previous pick". */
+const rejectedSubs = new WeakSet<Submission>();
+/** Refetch sequence: a response older than the newest request is dropped, so
+ * a slow GET issued before a write cannot overwrite that write's result. */
+let poolReq = 0;
 
 export async function refreshPool(): Promise<void> {
+  const id = ++poolReq;
   try {
     const res = await fetch("/api/pool", { cache: "no-store" });
-    if (!res.ok) return;
-    livePool = (await res.json()) as LivePool;
+    if (!res.ok) {
+      poolFetched = false; // same retry rule as the roster: never latch a miss
+      return;
+    }
+    const data = (await res.json()) as LivePool;
+    if (id !== poolReq) return; // a newer refetch owns the cache now
+    livePool = data;
     emit();
   } catch {
-    /* offline: keep the cache as-is */
+    poolFetched = false; // offline: retry on the next navigation
   }
 }
 
@@ -170,14 +217,39 @@ export function ensurePool(): void {
   void refreshPool();
 }
 
-function poolWrite(resource: string, data: unknown): void {
-  void fetch("/api/pool", {
+/**
+ * Both caches are views scoped to WHO fetched them: signed out gets the
+ * public roster and pool, a member gets their own picks, an admin gets names,
+ * emails, payments, and the house line. The sign-in page is public and
+ * fetches while signed out, and Clerk then continues client-side, so the
+ * module cache survives the sign-in. Re-key the caches on the viewer and
+ * refetch the moment the identity changes; otherwise the nameless public
+ * view would stick for the whole session.
+ */
+let fetchedViewer: string | null | undefined;
+export function syncViewer(userId: string | null): void {
+  if (fetchedViewer !== userId) {
+    fetchedViewer = userId;
+    rosterFetched = false;
+    poolFetched = false;
+  }
+  ensureRoster();
+  ensurePool();
+}
+
+/** POST one write; resolves true when the server accepted it. A successful
+ * write triggers a refetch so the cache matches the database. */
+function poolWrite(resource: string, data: unknown): Promise<boolean> {
+  return fetch("/api/pool", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ resource, data }),
-  }).then((res) => {
-    if (res.ok) void refreshPool();
-  });
+  })
+    .then((res) => {
+      if (res.ok) void refreshPool();
+      return res.ok;
+    })
+    .catch(() => false);
 }
 
 /**
@@ -189,6 +261,39 @@ export function currentWeek(): number {
   const now = nowMs();
   const upcoming = effectiveContests().find((c) => now < Date.parse(c.lockAtUTC));
   return upcoming?.week ?? 18;
+}
+
+/** True once the live pool (contests, picks, results) has arrived. */
+export function poolLoaded(): boolean {
+  return isDemoArea() || livePool !== null;
+}
+
+/**
+ * The week the office is working on: the latest ungraded week with picks on
+ * file, else currentWeek(). Unlike currentWeek() it does not jump ahead at
+ * lock; a week stays put until it is graded.
+ */
+export function inboxWeek(): number {
+  return (
+    effectiveContests().findLast(
+      (c) => c.status !== "graded" && effectiveSubmissions(c.week).length > 0,
+    )?.week ?? currentWeek()
+  );
+}
+
+/**
+ * Week selector state that opens on inboxWeek(). The default is derived until
+ * the live pool loads (the picks are not known at first paint), then latched,
+ * so a pick landing for a later week cannot move the page mid-task.
+ */
+export function useInboxWeek(): [number, (week: number) => void] {
+  useStoreVersion();
+  const [picked, setPicked] = useState<number | null>(null);
+  const week = picked ?? inboxWeek();
+  useEffect(() => {
+    if (picked == null && poolLoaded()) setPicked(week);
+  }, [picked, week]);
+  return [week, setPicked];
 }
 
 // --- Plumbing ---------------------------------------------------------------
@@ -273,9 +378,9 @@ export function useUserId(): string | null {
 /**
  * The signed-in participant.
  *   DEMO: the localStorage character (pick-a-name sign-in).
- *   LIVE: the Clerk session, and nothing else. Admin emails become Mother
- *   Superior; everyone else is a provisional player until the roster/DB
- *   milestone maps accounts to nicknames.
+ *   LIVE: the Clerk session, and nothing else. Every account, admin or not,
+ *   is a contestant under its own id: admin emails simply carry the office
+ *   powers (grading, office entry, house line) on top of a normal player row.
  */
 export function useUser(): Participant | null {
   useStoreVersion();
@@ -288,20 +393,27 @@ export function useUser(): Participant | null {
 
   if (!isLoaded || !clerkUser) return null;
   const email = clerkUser.primaryEmailAddress?.emailAddress?.toLowerCase();
-  if (email && ADMIN_EMAILS.includes(email)) return MOTHER;
+  const isAdmin = !!email && ADMIN_EMAILS.includes(email);
   // The member's own nickname: the fetched roster row is freshest; Clerk's
   // client-side publicMetadata covers the window before the roster arrives.
   // (This must never be hardcoded empty — players could not see their own
   // Commissioner-assigned nickname.) name stays the account name: selfName()
   // may show you your own name, publicName() never renders it to others.
+  // On a shared entry this resolves the signed-in account to the ENTRY, so
+  // both people read and write the same pick. Falls back to the account's own
+  // id before the roster lands; saveSubmission re-checks at write time.
   const fromRoster = poolParticipant(clerkUser.id);
+  const entryId = fromRoster?.id ?? clerkUser.id;
   const metaNick = ((clerkUser.publicMetadata?.nickname as string | undefined) ?? "").trim();
   return {
-    id: clerkUser.id,
+    id: entryId,
     name: clerkUser.fullName ?? clerkUser.firstName ?? email ?? "Member",
     email,
     nickname: fromRoster?.nickname?.trim() || metaNick,
-    avatarColor: fromRoster?.avatarColor ?? colorForId(clerkUser.id),
+    avatarColor: fromRoster?.avatarColor ?? colorForId(entryId),
+    ...(fromRoster?.memberIds ? { memberIds: fromRoster.memberIds } : {}),
+    ...(fromRoster?.members ? { members: fromRoster.members } : {}),
+    ...(isAdmin ? { isAdmin: true } : {}),
   };
 }
 
@@ -324,9 +436,10 @@ function localSubs(): Submission[] {
 }
 
 /**
- * Players only. Mother Superior doesn't pick — an admin row (stale storage,
- * or any future write path) must never reach the grading engine, where a
- * stray scorePick would corrupt Closest-To/Exacto for the whole field.
+ * Contestants only. The office row (MOTHER's id: the demo commissioner, or a
+ * stray house-line write) must never reach the grading engine, where its
+ * scorePick would corrupt Closest-To/Exacto for the whole field. Live admins
+ * pick under their own account ids and grade like anyone else.
  */
 export function playerSubmissions(subs: Submission[]): Submission[] {
   return subs.filter((s) => !poolParticipant(s.userId)?.isAdmin);
@@ -336,9 +449,34 @@ export function playerSubmissions(subs: Submission[]): Submission[] {
  * Baked submissions + anything saved in this browser. A local pick for the
  * same user+week replaces the baked one.
  */
+/**
+ * Fold any pick keyed to a member account onto the entry it belongs to. A row
+ * written before two accounts were linked, or by an older client, is still
+ * that entry's pick: without this it would be invisible to the counts and the
+ * standings while still competing in the relative bonuses, which would quietly
+ * corrupt Closest-To for the whole field. The entry's own row wins; failing
+ * that, the later submission does.
+ */
+function foldOntoEntries(subs: Submission[]): Submission[] {
+  const best = new Map<string, { sub: Submission; own: boolean }>();
+  for (const s of subs) {
+    const id = poolParticipant(s.userId)?.id ?? s.userId;
+    const own = id === s.userId;
+    const cur = best.get(id);
+    const wins =
+      !cur ||
+      (own && !cur.own) ||
+      (own === cur.own && cur.sub.submittedAtUTC.localeCompare(s.submittedAtUTC) < 0);
+    if (wins) best.set(id, { sub: own ? s : { ...s, userId: id }, own });
+  }
+  return [...best.values()].map((x) => x.sub);
+}
+
 export function effectiveSubmissions(week: number): Submission[] {
   if (!isDemoArea()) {
-    return playerSubmissions((livePool?.submissions ?? []).filter((s) => s.week === week));
+    return playerSubmissions(
+      foldOntoEntries((livePool?.submissions ?? []).filter((s) => s.week === week)),
+    );
   }
   const local = localSubs().filter((s) => s.week === week);
   const baked = bakedSubs().filter(
@@ -351,13 +489,51 @@ export function mySubmission(week: number, userId: string): Submission | undefin
   return effectiveSubmissions(week).find((s) => s.userId === userId);
 }
 
-export function saveSubmission(sub: Submission) {
-  if (!isDemoArea()) {
-    poolWrite("submission", sub);
-    return;
+/**
+ * Save a pick. Resolves true once it is on file. Live mode is optimistic: the
+ * cache shows the pick at once (the office rail drops the name, the player's
+ * own card flips to "locked in"), the server write follows, and a rejected
+ * write rolls the cache back so nothing claims a pick that never landed.
+ */
+export async function saveSubmission(raw: Submission): Promise<boolean> {
+  // One chokepoint for every write path (player, office, house line): a pick
+  // belongs to the ENTRY, never to one account on a shared entry.
+  const entryId = poolParticipant(raw.userId)?.id ?? raw.userId;
+  const sub: Submission = entryId === raw.userId ? raw : { ...raw, userId: entryId };
+  if (isDemoArea()) {
+    const rest = localSubs().filter((s) => !(s.week === sub.week && s.userId === sub.userId));
+    writeJSON(k("subs"), [...rest, sub]);
+    return true;
   }
-  const rest = localSubs().filter((s) => !(s.week === sub.week && s.userId === sub.userId));
-  writeJSON(k("subs"), [...rest, sub]);
+  const before = livePool;
+  const prev = before?.submissions.find((s) => s.week === sub.week && s.userId === sub.userId);
+  if (before) {
+    livePool = {
+      ...before,
+      submissions: [
+        ...before.submissions.filter((s) => !(s.week === sub.week && s.userId === sub.userId)),
+        sub,
+      ],
+    };
+    emit();
+  }
+  const ok = await poolWrite("submission", sub);
+  // Roll back THIS entry only. Later optimistic writes carry the same object
+  // through by reference, so it is still findable; a refetch replaces the
+  // array with fresh objects, so server truth is never touched.
+  if (!ok) rejectedSubs.add(sub);
+  if (!ok && livePool && livePool.submissions.includes(sub)) {
+    // Put the previous pick back unless it was itself an optimistic write the
+    // server already refused (one still in flight is fine: its own failure
+    // will find and remove it).
+    const restore = prev && !rejectedSubs.has(prev) ? [prev] : [];
+    livePool = {
+      ...livePool,
+      submissions: [...livePool.submissions.filter((s) => s !== sub), ...restore],
+    };
+    emit();
+  }
+  return ok;
 }
 
 // --- Contests (admin builder overlay) ---------------------------------------
@@ -440,6 +616,38 @@ export function selfName(p: Participant): string {
   return overlay[p.id]?.trim() || p.nickname || p.name;
 }
 
+/**
+ * Import path: many nicknames, one roster refresh at the end. Returns how
+ * many rows the server accepted. Nickname only; the API touches nothing else.
+ */
+export async function saveNicknames(
+  entries: { userId: string; nickname: string }[],
+): Promise<{ saved: number; failed: number }> {
+  let saved = 0;
+  let failed = 0;
+  if (isDemoArea()) {
+    const overlay = readJSON<Record<string, string>>(k("nicknames"), {});
+    for (const e of entries) overlay[e.userId] = e.nickname;
+    writeJSON(k("nicknames"), overlay);
+    return { saved: entries.length, failed: 0 };
+  }
+  for (const e of entries) {
+    try {
+      const res = await fetch("/api/roster", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ userId: e.userId, nickname: e.nickname }),
+      });
+      if (res.ok) saved++;
+      else failed++;
+    } catch {
+      failed++;
+    }
+  }
+  await refreshRoster();
+  return { saved, failed };
+}
+
 export function saveNickname(userId: string, nickname: string) {
   if (isDemoArea()) {
     const overlay = readJSON<Record<string, string>>(k("nicknames"), {});
@@ -470,8 +678,22 @@ export function mothersSubmission(week: number): Submission | undefined {
   return local.find((s) => s.week === week);
 }
 
-export function publishMothersLine(contest: Contest, sub: Submission, says: string) {
-  const updated = { ...contest, motherSays: says || undefined };
+export function publishMothersLine(contest: Contest, line: Submission, says: string) {
+  // The house line is the office's, not any one admin's: it is stored under
+  // MOTHER's id so it never collides with an admin's own graded pick.
+  const sub: Submission = { ...line, userId: MOTHER.id };
+  // Her Pickum winners for every game but the Lions game, in slate order.
+  const pickum = contest.questions.flatMap((q) => {
+    if (q.kind !== "pickem") return [];
+    const a = line.answers[q.id];
+    const map = (typeof a === "object" && a != null ? a : {}) as Record<string, TeamAbbr>;
+    return q.games.filter((g) => !isLionsPickemGame(g) && map[g.id]).map((g) => map[g.id]);
+  });
+  const updated: Contest = {
+    ...contest,
+    motherSays: says || undefined,
+    motherPickum: pickum.length > 0 ? pickum : undefined,
+  };
   if (!isDemoArea()) {
     poolWrite("motherPick", { sub, contest: updated });
     return;
